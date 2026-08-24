@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# NeoForge
+run/
+runs/
+repo/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# OS
+.DS_Store
+
+# Internal planning — roadmaps, session notes, working docs.
+PLAN.md
+ROADMAP.md
+TODO.md
+NOTES.md
+*.plan.md

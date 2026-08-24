@@ -1,0 +1,86 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.78'
+}
+
+version = mod_version
+group = mod_group_id
+
+repositories {
+    mavenLocal()
+}
+
+base {
+    archivesName = mod_id
+}
+
+// Minecraft 1.21.1 runs on Java 21. Pinning the toolchain rather than
+// inheriting the machine's JDK keeps a local build and CI producing the same
+// bytecode.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = '2024.11.17'
+        minecraftVersion = '1.21.1'
+    }
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        data {
+            clientData()
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // LuckPerms' API only — the mod itself is a runtime dependency of the pack,
+    // never something we ship. Rank purchases go through this rather than by
+    // running `lp` as a console command, so a failure is an exception we can
+    // catch instead of a silently swallowed chat message.
+    compileOnly 'net.luckperms:api:5.4'
+}
+
+// Expand gradle.properties into neoforge.mods.toml so the version lives in one
+// place. Everything else in that file is written by hand.
+tasks.named('processResources', ProcessResources).configure {
+    var replacements = [
+        minecraft_version    : minecraft_version,
+        neo_version_range    : neo_version_range,
+        loader_version_range : loader_version_range,
+        mod_id               : mod_id,
+        mod_name             : mod_name,
+        mod_license          : mod_license,
+        mod_version          : mod_version,
+        mod_authors          : mod_authors,
+        mod_description      : mod_description,
+    ]
+    inputs.properties replacements
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replacements
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+java {
+    withSourcesJar()
+}
