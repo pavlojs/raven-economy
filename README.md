@@ -58,4 +58,14 @@ printed nothing at all to a Polish player. That is the bar to clear.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+**Apache License 2.0.** See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Do what you like with it — use it, change it, ship it in a closed-source pack,
+sell it. Two things come with you: keep the copyright notice and the licence
+text, and carry the `NOTICE` file, which names the author and where this came
+from. If you change a file, say so in it.
+
+That last part is why this is Apache-2.0 rather than MIT: MIT obliges you to
+keep a copyright line and nothing more, so a fork can end up with no trace of
+where it started. `NOTICE` is the mechanism that makes the origin travel with
+the code.
