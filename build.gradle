@@ -84,3 +84,47 @@ tasks.withType(JavaCompile).configureEach {
 java {
     withSourcesJar()
 }
+
+/**
+ * Every language file must carry every key.
+ *
+ * Not a style rule. The mod this one replaces shipped a Polish translation with
+ * five empty strings, and one of them was the reply to `/money` — so a Polish
+ * player asking their balance got a blank line and no way to tell whether the
+ * command had worked. A missing key at least falls back to English and is
+ * merely untranslated; an empty one is invisible breakage. This catches both,
+ * and it runs in CI so it catches them before a player does.
+ */
+tasks.register('checkTranslations') {
+    def langDir = file('src/main/resources/assets/ravencoin/lang')
+    inputs.dir langDir
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def parse = { f ->
+            new groovy.json.JsonSlurper().parse(f, 'UTF-8') as Map
+        }
+        def reference = parse(new File(langDir, 'en_us.json'))
+        def problems = []
+
+        langDir.listFiles({ f -> f.name.endsWith('.json') } as FileFilter).each { f ->
+            def entries = parse(f)
+
+            def missing = reference.keySet() - entries.keySet()
+            if (missing) problems << "${f.name}: missing ${missing.sort()}"
+
+            def unknown = entries.keySet() - reference.keySet()
+            if (unknown) problems << "${f.name}: not in en_us ${unknown.sort()}"
+
+            def blank = entries.findAll { k, v -> !(v as String)?.trim() }.keySet()
+            if (blank) problems << "${f.name}: empty ${blank.sort()}"
+        }
+
+        if (problems) {
+            throw new GradleException("Translation files disagree:\n  " + problems.join('\n  '))
+        }
+        logger.lifecycle("translations: ${langDir.listFiles().length} languages, ${reference.size()} keys, all complete")
+    }
+}
+
+tasks.named('check') { dependsOn 'checkTranslations' }
