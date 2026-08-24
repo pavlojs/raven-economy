@@ -53,7 +53,7 @@ dependencies {
     // never something we ship. Rank purchases go through this rather than by
     // running `lp` as a console command, so a failure is an exception we can
     // catch instead of a silently swallowed chat message.
-    compileOnly 'net.luckperms:api:5.4'
+    compileOnly 'net.luckperms:api:5.5'
 }
 
 // Expand gradle.properties into neoforge.mods.toml so the version lives in one
