@@ -1,18 +1,44 @@
+# ── Dependabot configuration ──────────────────────────────────────────────────
+#
+# Supply-chain quarantine: `cooldown: default-days: 7` means Dependabot will not
+# propose a version until it has been public for a week, so a too-fresh release
+# never becomes a PR and cannot be merged early. Security updates are exempt by
+# design and still open the moment an advisory lands.
+
 version: 2
+
 updates:
   - package-ecosystem: gradle
     directory: /
+    # Everything lands on dev in this repo, and dev is the default branch — but
+    # stated outright so a later change of default cannot silently redirect
+    # dependency work onto main.
+    target-branch: dev
     schedule:
       interval: weekly
       day: monday
+      time: "08:00"
+      timezone: UTC
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore"
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: weekly
       day: monday
+      time: "08:00"
+      timezone: UTC
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
     cooldown:
       default-days: 7
