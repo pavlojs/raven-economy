@@ -18,6 +18,12 @@ package net.whiteravens.ravencoin;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.whiteravens.ravencoin.config.RavenCoinConfig;
+import net.whiteravens.ravencoin.registry.ModBlocks;
+import net.whiteravens.ravencoin.registry.ModConditions;
+import net.whiteravens.ravencoin.registry.ModCreativeTabs;
+import net.whiteravens.ravencoin.registry.ModItems;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +46,11 @@ public class RavenCoin {
     public static final Logger LOG = LoggerFactory.getLogger("RavenCoin");
 
     public RavenCoin(IEventBus modBus, ModContainer container) {
-        LOG.info("RavenCoin loading");
+        ModBlocks.BLOCKS.register(modBus);
+        ModItems.ITEMS.register(modBus);
+        ModCreativeTabs.TABS.register(modBus);
+        ModConditions.CONDITIONS.register(modBus);
+
+        container.registerConfig(ModConfig.Type.COMMON, RavenCoinConfig.SPEC);
     }
 }

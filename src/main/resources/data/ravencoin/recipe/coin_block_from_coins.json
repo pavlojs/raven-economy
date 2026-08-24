@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": { "c": { "item": "ravencoin:coin" } },
+  "pattern": ["ccc", "ccc", "ccc"],
+  "result": { "count": 1, "id": "ravencoin:coin_block" }
+}

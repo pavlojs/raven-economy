@@ -1,4 +1,5 @@
 {
   "item.ravencoin.coin": "RavenCoin",
-  "block.ravencoin.coin_block": "Blok RavenCoinów"
+  "block.ravencoin.coin_block": "Blok RavenCoinów",
+  "itemGroup.ravencoin.main": "RavenCoin"
 }

@@ -1,0 +1,14 @@
+{
+  "neoforge:conditions": [
+    { "type": "ravencoin:minting_enabled" }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "g": { "tag": "c:ingots/gold" },
+    "e": { "tag": "c:gems/emerald" },
+    "d": { "tag": "c:gems/diamond" }
+  },
+  "pattern": ["ggg", "ede", "ggg"],
+  "result": { "count": 1, "id": "ravencoin:coin_block" }
+}
