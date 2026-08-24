@@ -36,17 +36,13 @@ pack and is version-controlled with it.
 
 ## Building
 
-Java 21 and Gradle 8.10.
+Java 21. The wrapper brings its own Gradle.
 
 ```
-gradle build
+./gradlew build
 ```
 
 The jar lands in `build/libs/`.
-
-**No Gradle wrapper is committed yet.** Generating one needs a working Gradle,
-and this repo was scaffolded on a machine that had neither Gradle nor a JDK 21.
-Run `gradle wrapper` once and commit the result; CI already builds without it.
 
 ## Layout
 
