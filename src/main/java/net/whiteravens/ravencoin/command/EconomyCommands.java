@@ -238,6 +238,7 @@ public final class EconomyCommands {
             case TOO_LARGE -> "commands.ravencoin.error.too_large";
             case DISABLED -> "commands.ravencoin.error.disabled";
             case SAME_ACCOUNT -> "commands.ravencoin.error.same_account";
+            case NO_ROOM -> "commands.ravencoin.error.no_room";
             case OK -> throw new IllegalArgumentException("OK is not an error");
         };
     }

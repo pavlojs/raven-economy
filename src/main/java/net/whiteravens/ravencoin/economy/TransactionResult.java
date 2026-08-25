@@ -35,7 +35,9 @@ public enum TransactionResult {
     /** The operator switched this off in the config. */
     DISABLED,
     /** Someone tried to pay themselves. */
-    SAME_ACCOUNT;
+    SAME_ACCOUNT,
+    /** There was nowhere to put the coins the account was willing to pay out. */
+    NO_ROOM;
 
     public boolean ok() {
         return this == OK;
