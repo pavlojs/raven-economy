@@ -1,10 +1,13 @@
 # Trivy suppressions.
 #
-# The Security workflow runs Trivy with `scanners: secret,misconfig` only.
-# Dependency advisories reach this repository through Dependabot and the
-# dependency graph submitted by the Security workflow, where each one is a PR
-# with a version behind it rather than a line in a file. Keep it that way: a CVE
-# suppressed here would be invisible to that process.
+# The Security workflow runs Trivy with `scanners: secret,misconfig` only, and
+# deliberately does not scan dependencies — the workflow explains why at length,
+# but the short version is that a mod's classpath is Mojang's and NeoForged's,
+# pinned with strict version constraints, and none of it ships in the jar.
+#
+# So this file is for secret and misconfiguration findings. If one ever needs
+# suppressing, it needs a reason written next to it — a finding silenced here
+# leaves no trace anywhere else.
 #
 # Format: one finding ID per line, each with a comment explaining why.
 # Currently empty.

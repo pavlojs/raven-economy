@@ -9,36 +9,40 @@ on:
     # Weekly on Monday at 09:00 UTC
     - cron: '0 9 * * 1'
 
+# This workflow deliberately does not submit a Gradle dependency graph, and the
+# reason is worth writing down because the opposite looks obviously correct.
+#
+# A mod compiles against the platform it runs on. Resolving compileClasspath here
+# pulls in the whole of Minecraft 1.21.1 and the NeoForge toolchain — 139
+# packages — and reports every one of them as a dependency of this repo. That is
+# how the first version of this file produced 26 open Dependabot alerts against
+# netty, log4j, commons-compress and lz4-java, none of which this repo can act on:
+#
+#   * The platform pins them with Gradle *strict* version constraints
+#     (`io.netty:netty-codec:{strictly 4.1.97.Final}`). A bump does not merely go
+#     unproposed — resolution fails. There is no upgrade to perform.
+#   * None of them is distributed. The jar is 56 classes, all ours, plus assets
+#     and data; nothing is shadowed or jar-in-jarred.
+#   * Filtering cannot separate them, because the platform and this mod's one
+#     real dependency (net.luckperms:api, compileOnly) share compileClasspath.
+#
+# So the graph could only ever report advisories belonging to Mojang and
+# NeoForged, on a schedule that would bury a real finding about our own code. If
+# this mod ever bundles a library of its own, submit the graph again — by then
+# there will be something in it worth reading.
+#
+# Advisories about the platform are a *pack* concern, decided when the Minecraft
+# line moves, not a mod concern.
+
 jobs:
-  # There is no `npm audit` equivalent for Gradle, and pretending otherwise by
-  # bolting on a scanner with its own advisory database would give this repo two
-  # sources of truth that disagree. Instead the resolved dependency graph is
-  # submitted to GitHub, which is what makes Dependabot alerts fire on it at
-  # all — without this, a vulnerable transitive dependency of the NeoForge
-  # toolchain is invisible here.
-  dependency-graph:
-    name: Submit dependency graph
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'schedule'
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: temurin
-
-      - name: Submit
-        uses: gradle/actions/dependency-submission@v6
-
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-latest
-    # Only runs on pull requests — compares new deps against known vulnerabilities
+    # Only runs on pull requests, which in this repo means Dependabot's — code
+    # goes straight to dev. With no Gradle graph submitted (see above) this
+    # reviews what GitHub detects natively, so in practice it is the guard on a
+    # workflow Action being swapped for something with a bad licence or a known
+    # advisory.
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -66,9 +70,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Limited to secret+misconfig on purpose — see .trivyignore. Dependency
-      # advisories arrive through Dependabot and the graph submitted above,
-      # where each one is a PR with a version behind it.
+      # Limited to secret+misconfig on purpose — see .trivyignore. Turning on
+      # Trivy's vulnerability scanner would resolve the same Minecraft and
+      # NeoForge classpath the dependency graph was dropped over, and land the
+      # same unactionable findings in the security tab by another route.
       - name: Run Trivy on repository
         uses: aquasecurity/trivy-action@v0.36.0
         with:
