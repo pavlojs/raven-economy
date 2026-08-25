@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "p": { "tag": "minecraft:planks" },
+    "i": { "tag": "c:ingots/iron" },
+    "c": { "item": "ravencoin:coin" }
+  },
+  "pattern": ["ppp", "pcp", "iii"],
+  "result": { "count": 1, "id": "ravencoin:shop" }
+}

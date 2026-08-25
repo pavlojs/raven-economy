@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "ravencoin:block/server_shop_top",
+    "front": "ravencoin:block/server_shop_front",
+    "side": "ravencoin:block/server_shop_side"
+  }
+}

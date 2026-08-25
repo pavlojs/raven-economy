@@ -82,6 +82,16 @@ public final class RavenCoinConfig {
         public final ModConfigSpec.BooleanValue shortCommandAliases;
 
         /**
+         * Whether shops trade at all.
+         *
+         * <p>Off leaves every shop standing and configured but refusing to sell,
+         * which is what you want in the hour after finding a pricing mistake:
+         * nobody loses their shop, and nobody empties it at the wrong price
+         * while the operator works out what the right one was.
+         */
+        public final ModConfigSpec.BooleanValue shopsEnabled;
+
+        /**
          * Whether ranks can be bought at all.
          *
          * <p>Off is not the same as an empty ladder: with this off the rank tab
@@ -123,6 +133,14 @@ public final class RavenCoinConfig {
                             "The prefixed forms /rc and /ravencoin are always registered.",
                             "Leave this off if another economy mod or plugin owns those names.")
                     .define("shortCommandAliases", false);
+            builder.pop();
+
+            builder.comment("Shops — each block is configured in game, by whoever owns it").push("shops");
+            shopsEnabled = builder
+                    .comment(
+                            "Whether shop blocks will trade.",
+                            "false leaves them standing and configured, but closed.")
+                    .define("shopsEnabled", true);
             builder.pop();
 
             builder.comment("Ranks — the ladder itself lives in ravencoin-ranks.json").push("ranks");

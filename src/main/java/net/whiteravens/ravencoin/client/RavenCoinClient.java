@@ -18,8 +18,10 @@ package net.whiteravens.ravencoin.client;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.registry.ModBlockEntities;
 import net.whiteravens.ravencoin.registry.ModMenus;
 
 /** Client-only wiring. Nothing here decides anything about money. */
@@ -28,6 +30,13 @@ public final class RavenCoinClient {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.ATM.get(), AtmScreen::new);
+        event.register(ModMenus.SHOP.get(), ShopScreen::new);
+        event.register(ModMenus.SHOP_CONFIG.get(), ShopConfigScreen::new);
+    }
+
+    @SubscribeEvent
+    public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(ModBlockEntities.SHOP.get(), ShopLabelRenderer::new);
     }
 
     private RavenCoinClient() {}

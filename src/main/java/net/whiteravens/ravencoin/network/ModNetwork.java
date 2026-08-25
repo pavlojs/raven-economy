@@ -21,17 +21,85 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.TransactionResult;
+import net.whiteravens.ravencoin.block.entity.ShopBlockEntity;
 import net.whiteravens.ravencoin.menu.AtmMenu;
+import net.whiteravens.ravencoin.menu.ShopConfigMenu;
+import net.whiteravens.ravencoin.menu.ShopMenu;
+import net.whiteravens.ravencoin.shop.ShopText;
+import org.jetbrains.annotations.Nullable;
 
-/** Registers this mod's packets and handles the one the ATM sends. */
+/**
+ * Registers this mod's packets and handles them.
+ *
+ * <p>Every handler here starts the same way, and it is the important line in the
+ * file: <b>the open menu is the authorisation</b>. A packet is only ever worth
+ * what the player could have done by standing at the block and clicking, so
+ * anyone who is not actually looking at the right screen is ignored. That check,
+ * not the screen, is what makes the buttons safe — a screen is drawn on a client
+ * and a client can be made to send anything.
+ */
 @EventBusSubscriber(modid = RavenCoin.MOD_ID)
 public final class ModNetwork {
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
-        event.registrar("1").playToServer(AtmActionPayload.TYPE, AtmActionPayload.STREAM_CODEC, ModNetwork::onAtmAction);
+        PayloadRegistrar registrar = event.registrar("1");
+        registrar.playToServer(AtmActionPayload.TYPE, AtmActionPayload.STREAM_CODEC, ModNetwork::onAtmAction);
+        registrar.playToServer(ShopBuyPayload.TYPE, ShopBuyPayload.STREAM_CODEC, ModNetwork::onShopBuy);
+        registrar.playToServer(ShopPickPayload.TYPE, ShopPickPayload.STREAM_CODEC, ModNetwork::onShopPick);
+        registrar.playToServer(
+                ShopSettingsPayload.TYPE, ShopSettingsPayload.STREAM_CODEC, ModNetwork::onShopSettings);
+    }
+
+    /** Runs one purchase for the player whose shop screen is open. */
+    private static void onShopBuy(ShopBuyPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        if (!(player.containerMenu instanceof ShopMenu menu) || !menu.stillValid(player)) {
+            return;
+        }
+        ShopBlockEntity shop = menu.shop();
+        if (shop == null) {
+            return;
+        }
+        player.sendSystemMessage(ShopText.outcome(shop, shop.buy(player, payload.lots())));
+    }
+
+    /**
+     * Copies the sender's cursor into one of the settings slots.
+     *
+     * <p>Having the settings menu open is the permission: the block only hands
+     * that menu to the owner or an operator, so there is nothing further to
+     * check here.
+     */
+    private static void onShopPick(ShopPickPayload payload, IPayloadContext context) {
+        ShopBlockEntity shop = editedShop(context);
+        if (shop != null) {
+            shop.pick(context.player(), payload.forPrice());
+        }
+    }
+
+    private static void onShopSettings(ShopSettingsPayload payload, IPayloadContext context) {
+        ShopBlockEntity shop = editedShop(context);
+        if (shop != null) {
+            shop.configure(payload.productUnits(), payload.priceUnits(), payload.rank(), payload.showLabel());
+        }
+    }
+
+    /** {@return the shop whose settings screen the sender has open, or null} */
+    @Nullable
+    private static ShopBlockEntity editedShop(IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return null;
+        }
+        if (!(player.containerMenu instanceof ShopConfigMenu menu) || !menu.stillValid(player)) {
+            return null;
+        }
+        return menu.shop();
     }
 
     /**
@@ -39,11 +107,6 @@ public final class ModNetwork {
      *
      * <p>Handlers registered this way run on the server thread, so the ledger is
      * touched from the one place that is allowed to touch it.
-     *
-     * <p>The open menu is the authorisation. A packet is only ever worth what the
-     * player could have done by standing at the machine and clicking, so anyone
-     * who is not actually looking at an ATM they can reach is ignored — that
-     * check, not the screen, is what makes the button safe.
      */
     private static void onAtmAction(AtmActionPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) {

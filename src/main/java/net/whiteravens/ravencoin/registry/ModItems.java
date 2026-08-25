@@ -46,5 +46,12 @@ public final class ModItems {
     /** The ATM in item form, so it can be crafted, carried and placed. */
     public static final DeferredItem<BlockItem> ATM = ITEMS.registerSimpleBlockItem("atm", ModBlocks.ATM);
 
+    /** A player's shop counter, in item form. */
+    public static final DeferredItem<BlockItem> SHOP = ITEMS.registerSimpleBlockItem("shop", ModBlocks.SHOP);
+
+    /** The operator's shop. Not craftable — it arrives through the creative tab or a command. */
+    public static final DeferredItem<BlockItem> SERVER_SHOP =
+            ITEMS.registerSimpleBlockItem("server_shop", ModBlocks.SERVER_SHOP);
+
     private ModItems() {}
 }

@@ -21,7 +21,10 @@ import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.whiteravens.ravencoin.menu.AtmMenu;
+import net.whiteravens.ravencoin.menu.ShopConfigMenu;
+import net.whiteravens.ravencoin.menu.ShopMenu;
 
 /** Screens this mod can open. */
 public final class ModMenus {
@@ -37,6 +40,20 @@ public final class ModMenus {
      */
     public static final DeferredHolder<MenuType<?>, MenuType<AtmMenu>> ATM =
             MENUS.register("atm", () -> new MenuType<>(AtmMenu::new, FeatureFlags.DEFAULT_FLAGS));
+
+    /**
+     * The buying screen.
+     *
+     * <p>Built with the extra-data factory because a client opening this has to
+     * be told <em>which</em> shop — everything else about the offer it already
+     * has, from the block entity it is standing in front of.
+     */
+    public static final DeferredHolder<MenuType<?>, MenuType<ShopMenu>> SHOP =
+            MENUS.register("shop", () -> IMenuTypeExtension.create(ShopMenu::new));
+
+    /** The owner's settings screen. Same extra data, different permission to have got here. */
+    public static final DeferredHolder<MenuType<?>, MenuType<ShopConfigMenu>> SHOP_CONFIG =
+            MENUS.register("shop_config", () -> IMenuTypeExtension.create(ShopConfigMenu::new));
 
     private ModMenus() {}
 }

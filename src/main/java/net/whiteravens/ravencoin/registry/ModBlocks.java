@@ -24,9 +24,12 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.block.AtmBlock;
+import net.whiteravens.ravencoin.block.ServerShopBlock;
+import net.whiteravens.ravencoin.block.ShopBlock;
 
 /**
- * Storage form of the currency: nine coins in, nine coins back out.
+ * The blocks this mod adds: the currency in storage form, and the three
+ * machines that move it.
  *
  * <p>The same bargain vanilla strikes with ingots and blocks, and it is here for
  * the same reason — a player banking a serious sum should not be carrying
@@ -53,6 +56,31 @@ public final class ModBlocks {
                     .strength(3.5F, 8.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
+                    .pushReaction(PushReaction.BLOCK)));
+
+    /** A player's shop counter. Timber and iron, and it keeps nothing itself. */
+    public static final DeferredBlock<Block> SHOP = BLOCKS.register(
+            "shop",
+            () -> new ShopBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOD)
+                    .strength(2.5F, 3.0F)
+                    .sound(SoundType.WOOD)
+                    .pushReaction(PushReaction.BLOCK)));
+
+    /**
+     * The operator's shop.
+     *
+     * <p>Unbreakable in survival, the way bedrock is. A server shop stands where
+     * players can reach it, usually in a spawn town, and one that could be mined
+     * is one that will be — along with every price an operator set on it.
+     */
+    public static final DeferredBlock<Block> SERVER_SHOP = BLOCKS.register(
+            "server_shop",
+            () -> new ServerShopBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.DEEPSLATE)
+                    .strength(-1.0F, 3600000.0F)
+                    .sound(SoundType.DEEPSLATE)
+                    .noLootTable()
                     .pushReaction(PushReaction.BLOCK)));
 
     private ModBlocks() {}

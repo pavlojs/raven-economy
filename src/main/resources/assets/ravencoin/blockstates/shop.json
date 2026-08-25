@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ravencoin:block/shop" },
+    "facing=east": { "model": "ravencoin:block/shop", "y": 90 },
+    "facing=south": { "model": "ravencoin:block/shop", "y": 180 },
+    "facing=west": { "model": "ravencoin:block/shop", "y": 270 }
+  }
+}

@@ -20,6 +20,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.whiteravens.ravencoin.config.RavenCoinConfig;
+import net.whiteravens.ravencoin.registry.ModBlockEntities;
 import net.whiteravens.ravencoin.registry.ModBlocks;
 import net.whiteravens.ravencoin.registry.ModConditions;
 import net.whiteravens.ravencoin.registry.ModCreativeTabs;
@@ -48,6 +49,7 @@ public class RavenCoin {
 
     public RavenCoin(IEventBus modBus, ModContainer container) {
         ModBlocks.BLOCKS.register(modBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modBus);
         ModItems.ITEMS.register(modBus);
         ModCreativeTabs.TABS.register(modBus);
         ModConditions.CONDITIONS.register(modBus);
