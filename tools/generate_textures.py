@@ -300,8 +300,6 @@ def coin_disc(t, ox=0, oy=0, scale_pal=GOLD):
     for y in range(4, 11):
         x0, x1 = DISC[y]
         t.rect(ox + x0 + 2, oy + y, ox + x1 - 2, oy + y, scale_pal[4])
-    # a cold glint on the rim — the one thing the coin shares with the ATM
-    t.px(ox + 10, oy + 2, "#5BE8DA"); t.px(ox + 11, oy + 3, "#A3F7F0")
     # the field is domed, not flat: one shade up along the top-left arc
     t.px(ox + 3, oy + 4, scale_pal[6]); t.px(ox + 2, oy + 5, scale_pal[6])
     t.px(ox + 2, oy + 6, scale_pal[6]); t.px(ox + 13, oy + 10, scale_pal[3])
@@ -315,6 +313,16 @@ def coin():
         for gx, ch in enumerate(row):
             if ch == "#":
                 t.px(5 + gx, 4 + gy, GOLD[0])
+    # The coin carries its own recipe on its face: six pixels of diamond to
+    # three of amethyst is the two-to-one the minting grid asks for. It is not
+    # decoration and it is not a glint — if the recipe changes, these counts
+    # change with it, and if they are dropped the coin stops meaning anything.
+    for x, y, c in ((11, 5, "#A3F7F0"), (11, 6, "#5BE8DA"), (12, 6, "#5BE8DA"),
+                    (11, 7, "#5BE8DA"), (12, 7, "#5BE8DA"), (11, 8, "#A3F7F0")):
+        t.px(x, y, c)
+    for x, y, c in ((3, 6, "#843EBA"), (4, 6, "#BE84E8"), (3, 7, "#843EBA")):
+        t.px(x, y, c)
+
     # struck into the metal, so the wall below each stroke catches the light
     for gy, row in enumerate(R_GLYPH):
         for gx, ch in enumerate(row):
