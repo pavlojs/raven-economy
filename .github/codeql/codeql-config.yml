@@ -3,3 +3,31 @@ name: RavenCoin
 queries:
   - uses: security-extended
   - uses: security-and-quality
+
+# Two quality queries fire on the shape of Minecraft modding itself rather than
+# on anything this mod does, once per call site, forever. Neither is a security
+# query; both come in with security-and-quality.
+#
+#   java/unused-parameter
+#     A NeoForge event handler is subscribed *by its parameter type* — the
+#     `ServerStartingEvent event` in EconomyEvents is the subscription, and
+#     deleting it unsubscribes the handler. Likewise `serverTick(Level, BlockPos,
+#     BlockState, ShopBlockEntity)` is BlockEntityTicker's functional interface,
+#     passed as a method reference; its four parameters are the contract, not a
+#     suggestion. Every new event handler and ticker adds another alert.
+#
+#   java/deprecated-call
+#     Mojang uses @Deprecated on BlockStateBase to mean "this is the dispatch
+#     method, override it, don't call it" — not "this is going away". Vanilla's
+#     own horizontal-facing blocks are written exactly as ours are, with
+#     `state.rotate(mirror.getRotation(...))` inside mirror(). Every new
+#     directional block adds another alert.
+#
+# What this costs: a genuinely deprecated non-Minecraft call — say a LuckPerms
+# API method — would no longer show up here. That one is still caught, because
+# javac reports it and `./gradlew build` is the gate the release runs through.
+query-filters:
+  - exclude:
+      id: java/unused-parameter
+  - exclude:
+      id: java/deprecated-call
