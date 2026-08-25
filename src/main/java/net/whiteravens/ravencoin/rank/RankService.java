@@ -126,27 +126,43 @@ public final class RankService {
             return RankPurchase.OUT_OF_ORDER;
         }
 
-        TransactionResult charged = EconomyService.withdraw(
-                player.getServer(), player.getUUID(), player.getGameProfile().getName(), rank.price());
+        // Captured while the player is certainly still here. LuckPerms answers on
+        // its own thread and can take longer than someone stays logged in;
+        // reaching back through `player` at that point gives a null server, and
+        // the NPE would disappear into a future nobody waits on — leaving a
+        // player charged for a rank they never got and no refund.
+        MinecraftServer server = player.getServer();
+        UUID playerId = player.getUUID();
+        String playerName = player.getGameProfile().getName();
+
+        TransactionResult charged = EconomyService.withdraw(server, playerId, playerName, rank.price());
         if (!charged.ok()) {
             return RankPurchase.INSUFFICIENT_FUNDS;
         }
 
-        CompletableFuture<Void> granted = LuckPermsBridge.grant(player.getUUID(), rank.group());
-        granted.whenComplete((ignored, failure) -> {
-            if (failure == null) {
-                return;
-            }
-            RavenCoin.LOG.error("Granting {} to {} failed — refunding", rank.group(), player.getGameProfile().getName(), failure);
-            // Back on the server thread: the ledger is not thread safe, and this
-            // callback arrives on whichever thread LuckPerms saved on.
-            player.getServer().execute(() -> {
-                EconomyService.deposit(
-                        player.getServer(), player.getUUID(), player.getGameProfile().getName(), rank.price());
-                player.sendSystemMessage(Component.translatable(
-                        "commands.ravencoin.rank.refunded", rank.name(), Amounts.format(rank.price())));
-            });
-        });
+        // Deliberately not awaited: this callback is the whole of the handling and
+        // no caller has anything to do until it runs. Named `unused` because that
+        // is what says so to both a reader and Error Prone.
+        CompletableFuture<Void> unused = LuckPermsBridge.grant(playerId, rank.group())
+                .whenComplete((ignored, failure) -> {
+                    if (failure == null) {
+                        return;
+                    }
+                    RavenCoin.LOG.error("Granting {} to {} failed — refunding", rank.group(), playerName, failure);
+                    // Back on the server thread: the ledger is not thread safe, and
+                    // this callback arrives on whichever thread LuckPerms saved on.
+                    server.execute(() -> {
+                        EconomyService.deposit(server, playerId, playerName, rank.price());
+                        // The money goes back whether or not they are still online —
+                        // the ledger holds absent players. Only the message needs
+                        // somebody to read it.
+                        ServerPlayer online = server.getPlayerList().getPlayer(playerId);
+                        if (online != null) {
+                            online.sendSystemMessage(Component.translatable(
+                                    "commands.ravencoin.rank.refunded", rank.name(), Amounts.format(rank.price())));
+                        }
+                    });
+                });
 
         return RankPurchase.OK;
     }
@@ -181,32 +197,34 @@ public final class RankService {
         // Held from here until LuckPerms has answered. Without it a save that
         // takes longer than the timer would be granted — and announced — twice.
         promoting.add(player.getUUID());
+        // Captured now for the same reason as in buy(): the answer arrives on
+        // LuckPerms' thread, by which time the player may be gone.
         MinecraftServer server = player.getServer();
-        LuckPermsBridge.grant(player.getUUID(), rank.group()).whenComplete((ignored, failure) -> server.execute(() -> {
-            promoting.remove(player.getUUID());
-            if (failure != null) {
-                // No money changed hands, so there is nothing to put back and no
-                // reason to tell the player. The next pass tries again.
-                RavenCoin.LOG.error(
-                        "Could not grant {} to {} for playtime — will retry",
-                        rank.group(),
-                        player.getGameProfile().getName(),
-                        failure);
-                return;
-            }
-            RavenCoin.LOG.info(
-                    "{} reached {} after {}",
-                    player.getGameProfile().getName(),
-                    rank.id(),
-                    Playtime.format(Playtime.minutes(player)));
-            server.getPlayerList()
-                    .broadcastSystemMessage(
-                            Component.translatable(
-                                    "commands.ravencoin.rank.promoted",
-                                    player.getGameProfile().getName(),
-                                    rank.name()),
-                            false);
-        }));
+        UUID playerId = player.getUUID();
+        String playerName = player.getGameProfile().getName();
+        String played = Playtime.format(Playtime.minutes(player));
+
+        // Not awaited, as in buy() — see the note there.
+        CompletableFuture<Void> unused = LuckPermsBridge.grant(playerId, rank.group())
+                .whenComplete((ignored, failure) -> server.execute(() -> {
+                    promoting.remove(playerId);
+                    if (failure != null) {
+                        // No money changed hands, so there is nothing to put back
+                        // and no reason to tell the player. The next pass retries.
+                        RavenCoin.LOG.error(
+                                "Could not grant {} to {} for playtime — will retry",
+                                rank.group(),
+                                playerName,
+                                failure);
+                        return;
+                    }
+                    RavenCoin.LOG.info("{} reached {} after {}", playerName, rank.id(), played);
+                    server.getPlayerList()
+                            .broadcastSystemMessage(
+                                    Component.translatable(
+                                            "commands.ravencoin.rank.promoted", playerName, rank.name()),
+                                    false);
+                }));
     }
 
     /**
