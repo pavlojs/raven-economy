@@ -1,0 +1,48 @@
+# ── Code Owners ───────────────────────────────────────────────────────────────
+# GitHub enforces that at least one owner approves any PR touching these paths.
+# Configure branch protection (Settings → Branches → main → Require review from
+# Code Owners) to make this mandatory.
+#
+# Paths are checked most-specific to least-specific; last matching rule wins.
+
+# ── CI/CD & supply chain ──────────────────────────────────────────────────────
+# Any change to workflow files or Dependabot config is high-risk supply chain.
+/.github/ @pavlojs
+
+# ── Build definition ──────────────────────────────────────────────────────────
+# Decides what ends up inside the jar, what version it claims to be, and which
+# Minecraft line it declares itself compatible with.
+/build.gradle @pavlojs
+/gradle.properties @pavlojs
+/settings.gradle @pavlojs
+/gradle/wrapper/ @pavlojs
+/src/main/resources/META-INF/ @pavlojs
+
+# ── Trust boundary ────────────────────────────────────────────────────────────
+# Every payload here arrives from a client that may be modified. The rule these
+# files implement — that an open menu is the authorisation and no ItemStack
+# crosses the wire — is the whole client-side security model.
+/src/main/java/net/whiteravens/ravencoin/network/ @pavlojs
+/src/main/java/net/whiteravens/ravencoin/menu/ @pavlojs
+
+# ── Money ─────────────────────────────────────────────────────────────────────
+# Balances, physical coin arithmetic, and the exchange that moves both at once.
+# A bug in any of these costs players something they cannot get back.
+/src/main/java/net/whiteravens/ravencoin/economy/ @pavlojs
+/src/main/java/net/whiteravens/ravencoin/shop/ @pavlojs
+/src/main/java/net/whiteravens/ravencoin/block/entity/ @pavlojs
+
+# ── Permissions ───────────────────────────────────────────────────────────────
+# The LuckPerms bridge grants real permissions in exchange for real money.
+/src/main/java/net/whiteravens/ravencoin/rank/ @pavlojs
+
+# ── Money supply ──────────────────────────────────────────────────────────────
+# The minting recipe and the condition that switches it off are the server's
+# monetary policy expressed as data.
+/src/main/resources/data/ravencoin/recipe/ @pavlojs
+/src/main/java/net/whiteravens/ravencoin/recipe/ @pavlojs
+
+# ── Security & legal docs ─────────────────────────────────────────────────────
+/SECURITY.md @pavlojs
+/LICENSE @pavlojs
+/NOTICE @pavlojs

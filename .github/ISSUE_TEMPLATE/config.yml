@@ -1,0 +1,25 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: "\U0001F6E1️ Security Vulnerability"
+    url: https://github.com/pavlojs/raven-economy/security/advisories/new
+    about: >
+      Report a security vulnerability privately via GitHub's built-in private
+      reporting. Do NOT open a public issue for anything that lets a player
+      duplicate items, mint money, or move somebody else's balance. Strip player
+      names, UUIDs and IP addresses from any server log you attach.
+
+  - name: "\U0001F9E9 Another mod is the problem"
+    url: https://github.com/pavlojs/raven-economy/issues
+    about: >
+      A crash whose stack trace names another mod belongs with that mod's
+      authors. Open an issue here if RavenCoin appears in the trace, if the two
+      mods disagree about an inventory or a permission, or if you are not sure —
+      an incompatibility is worth knowing about even when the fix belongs
+      elsewhere.
+
+  - name: "\U0001F426‍⬛ Contact White Ravens directly"
+    url: https://whiteravens.net
+    about: >
+      Have a question, or would rather not open a GitHub account? Reach us
+      through whiteravens.net.
