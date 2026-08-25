@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import net.neoforged.fml.loading.FMLPaths;
 import net.whiteravens.ravencoin.RavenCoin;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The rank ladder, kept in {@code config/ravencoin-ranks.json}.
@@ -55,6 +56,7 @@ public final class RankLadder {
     }
 
     /** {@return the ladder on disk, creating an empty one the first time} */
+    @Nullable
     public static RankLadder load() {
         Path path = path();
         if (!Files.exists(path)) {

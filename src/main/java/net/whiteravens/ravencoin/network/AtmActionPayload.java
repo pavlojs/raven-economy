@@ -43,6 +43,12 @@ public record AtmActionPayload(Action action, long amount) implements CustomPack
     public static final Type<AtmActionPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(RavenCoin.MOD_ID, "atm_action"));
 
+    // The ordinal is the wire format here, and that is safe for a reason worth
+    // stating: both ends of this packet are the same jar — NeoForge refuses the
+    // connection otherwise — and `decode` below range-checks whatever arrives.
+    // Reordering the two constants would still be a breaking change, which is
+    // why there are two of them and no plans for a third.
+    @SuppressWarnings("EnumOrdinal")
     public static final StreamCodec<ByteBuf, AtmActionPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT,
             payload -> payload.action().ordinal(),

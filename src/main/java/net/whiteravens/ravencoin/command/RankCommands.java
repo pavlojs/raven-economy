@@ -31,6 +31,7 @@ import net.whiteravens.ravencoin.rank.Playtime;
 import net.whiteravens.ravencoin.rank.Rank;
 import net.whiteravens.ravencoin.rank.RankPurchase;
 import net.whiteravens.ravencoin.rank.RankService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@code /rc rank} — buying a rung, and the operator side of shaping the ladder.
@@ -168,7 +169,7 @@ public final class RankCommands {
         return 1;
     }
 
-    private static int define(CommandContext<CommandSourceStack> context, String name) {
+    private static int define(CommandContext<CommandSourceStack> context, @Nullable String name) {
         String id = StringArgumentType.getString(context, "rank");
         String group = StringArgumentType.getString(context, "group");
         long price = LongArgumentType.getLong(context, "price");
@@ -187,7 +188,7 @@ public final class RankCommands {
         return 1;
     }
 
-    private static int requires(CommandContext<CommandSourceStack> context, String requiredId) {
+    private static int requires(CommandContext<CommandSourceStack> context, @Nullable String requiredId) {
         String id = StringArgumentType.getString(context, "rank");
         if (!RankService.setPrerequisite(id, requiredId)) {
             context.getSource().sendFailure(Component.translatable("commands.ravencoin.rank.error.bad_requirement"));

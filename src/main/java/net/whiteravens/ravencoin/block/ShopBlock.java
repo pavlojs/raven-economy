@@ -65,6 +65,12 @@ public class ShopBlock extends HorizontalDirectionalBlock implements EntityBlock
         return new ShopBlockEntity(pos, state);
     }
 
+    // Registered BlockEntityTypes are registry singletons and do not override
+    // equals, so identity is the comparison — `.equals` here would be the same
+    // check wearing a hat. Vanilla's own createTickerHelper does exactly this;
+    // it is just not reachable, because this block extends
+    // HorizontalDirectionalBlock for its FACING property rather than BaseEntityBlock.
+    @SuppressWarnings("ReferenceEquality")
     @Override
     @Nullable
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, net.minecraft.world.level.block.entity.BlockEntityType<T> type) {

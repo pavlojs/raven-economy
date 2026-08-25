@@ -30,6 +30,7 @@ import net.whiteravens.ravencoin.config.RavenCoinConfig;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.EconomyService;
 import net.whiteravens.ravencoin.economy.TransactionResult;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Selling rungs of the rank ladder.
@@ -41,7 +42,10 @@ import net.whiteravens.ravencoin.economy.TransactionResult;
 public final class RankService {
     private static final String LUCKPERMS = "luckperms";
 
+    @Nullable
     private static RankLadder ladder;
+
+    @Nullable
     private static Boolean permissionsAvailable;
 
     /**
@@ -290,7 +294,7 @@ public final class RankService {
      *
      * @return false if either rank is unknown, or the link would close a loop
      */
-    public static boolean setPrerequisite(String id, String requiredId) {
+    public static boolean setPrerequisite(String id, @Nullable String requiredId) {
         if (ladder == null) {
             return false;
         }

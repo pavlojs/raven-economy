@@ -16,6 +16,7 @@
 package net.whiteravens.ravencoin.rank;
 
 import java.util.Optional;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One rung of the rank ladder.
@@ -35,7 +36,8 @@ import java.util.Optional;
  *                        is only ever bought. Minutes rather than hours so a rung
  *                        can be set to something short enough to actually test.
  */
-public record Rank(String id, String group, long price, String name, String requires, long playtimeMinutes) {
+public record Rank(
+        String id, String group, long price, String name, @Nullable String requires, long playtimeMinutes) {
     public Optional<String> prerequisite() {
         return Optional.ofNullable(this.requires);
     }
@@ -52,7 +54,7 @@ public record Rank(String id, String group, long price, String name, String requ
         return this.playtimeMinutes > 0;
     }
 
-    public Rank withRequires(String other) {
+    public Rank withRequires(@Nullable String other) {
         return new Rank(this.id, this.group, this.price, this.name, other, this.playtimeMinutes);
     }
 

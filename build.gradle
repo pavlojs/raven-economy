@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.144'
+    id 'net.ltgt.errorprone' version '5.1.0'
 }
 
 version = mod_version
@@ -58,6 +59,9 @@ dependencies {
     // running `lp` as a console command, so a failure is an exception we can
     // catch instead of a silently swallowed chat message.
     compileOnly 'net.luckperms:api:5.5'
+
+    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+    errorprone 'com.uber.nullaway:nullaway:0.13.8'
 }
 
 // Expand gradle.properties into neoforge.mods.toml so the version lives in one
@@ -83,6 +87,35 @@ tasks.named('processResources', ProcessResources).configure {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
+
+    // Error Prone is the code gate. A warning nobody has to act on is not a gate,
+    // so every finding fails the build and has to be either fixed or refused in
+    // writing at the line that causes it.
+    //
+    // -Werror is safe to reach for here only because javac's own lint stays at
+    // its defaults: Error Prone's findings are the only warnings this build
+    // emits, and the deprecation chatter that comes with compiling against
+    // Minecraft arrives as a Note, which -Werror does not touch.
+    //
+    // The first run of this paid for itself. It found a shop's stock side being
+    // written to NBT by Enum.ordinal() and read back with values()[…], which
+    // fails a whole chunk on one corrupt byte; and a rank refund that reached
+    // through a ServerPlayer on LuckPerms' thread, where a player who had logged
+    // out in the meantime turned the refund into a swallowed NPE.
+    options.compilerArgs << '-Werror'
+
+    // NullAway turns the nullability this code already describes in prose into
+    // something the compiler checks. Scoped to our own package: Minecraft is
+    // unannotated and treated as non-null, which is the only setting that does
+    // not drown the build in findings about somebody else's API.
+    options.errorprone {
+        error('NullAway')
+        option('NullAway:AnnotatedPackages', 'net.whiteravens.ravencoin')
+        // A Screen's widget fields are assigned in init(), which Minecraft calls
+        // rather than the constructor. Without this, every screen looks like it
+        // leaves its own fields unset.
+        option('NullAway:KnownInitializers', 'net.minecraft.client.gui.screens.Screen.init')
+    }
 }
 
 java {
