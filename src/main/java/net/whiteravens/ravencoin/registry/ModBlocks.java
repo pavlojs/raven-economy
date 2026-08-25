@@ -16,12 +16,14 @@
 package net.whiteravens.ravencoin.registry;
 
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.block.AtmBlock;
 
 /**
  * Storage form of the currency: nine coins in, nine coins back out.
@@ -42,6 +44,16 @@ public final class ModBlocks {
                     .strength(3.0F, 6.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops());
+
+    /** The teller machine. Immovable so a piston cannot walk the bank away from its owner. */
+    public static final DeferredBlock<Block> ATM = BLOCKS.register(
+            "atm",
+            () -> new AtmBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_GRAY)
+                    .strength(3.5F, 8.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .pushReaction(PushReaction.BLOCK)));
 
     private ModBlocks() {}
 }

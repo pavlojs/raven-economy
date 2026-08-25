@@ -43,5 +43,8 @@ public final class ModItems {
     public static final DeferredItem<BlockItem> COIN_BLOCK =
             ITEMS.registerSimpleBlockItem("coin_block", ModBlocks.COIN_BLOCK);
 
+    /** The ATM in item form, so it can be crafted, carried and placed. */
+    public static final DeferredItem<BlockItem> ATM = ITEMS.registerSimpleBlockItem("atm", ModBlocks.ATM);
+
     private ModItems() {}
 }

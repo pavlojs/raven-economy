@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "i": { "tag": "c:ingots/iron" },
+    "g": { "tag": "c:ingots/gold" },
+    "c": { "item": "ravencoin:coin_block" },
+    "r": { "tag": "c:storage_blocks/redstone" }
+  },
+  "pattern": ["iii", "gcg", "iri"],
+  "result": { "count": 1, "id": "ravencoin:atm" }
+}

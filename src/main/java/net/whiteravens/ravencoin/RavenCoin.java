@@ -24,6 +24,7 @@ import net.whiteravens.ravencoin.registry.ModBlocks;
 import net.whiteravens.ravencoin.registry.ModConditions;
 import net.whiteravens.ravencoin.registry.ModCreativeTabs;
 import net.whiteravens.ravencoin.registry.ModItems;
+import net.whiteravens.ravencoin.registry.ModMenus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +51,7 @@ public class RavenCoin {
         ModItems.ITEMS.register(modBus);
         ModCreativeTabs.TABS.register(modBus);
         ModConditions.CONDITIONS.register(modBus);
+        ModMenus.MENUS.register(modBus);
 
         container.registerConfig(ModConfig.Type.COMMON, RavenCoinConfig.SPEC);
     }

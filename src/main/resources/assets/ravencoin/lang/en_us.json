@@ -18,5 +18,14 @@
   "commands.ravencoin.error.disabled": "Paying other players is switched off on this server",
   "commands.ravencoin.error.same_account": "You cannot pay yourself",
   "commands.ravencoin.error.one_player": "That has to name exactly one player",
+  "block.ravencoin.atm": "RavenCoin ATM",
+  "container.ravencoin.atm": "ATM",
+  "screen.ravencoin.atm.balance": "Balance: %s RC",
+  "screen.ravencoin.atm.carried": "Carried: %s RC",
+  "screen.ravencoin.atm.amount": "Amount",
+  "screen.ravencoin.atm.deposit": "Deposit",
+  "screen.ravencoin.atm.withdraw": "Withdraw",
+  "screen.ravencoin.atm.deposited": "Deposited %s RC",
+  "screen.ravencoin.atm.withdrew": "Withdrew %s RC",
   "commands.ravencoin.error.no_room": "No room in your inventory for those coins"
 }

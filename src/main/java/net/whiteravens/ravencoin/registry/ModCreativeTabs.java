@@ -36,6 +36,7 @@ public final class ModCreativeTabs {
                     .displayItems((params, output) -> {
                         output.accept(ModItems.COIN.get());
                         output.accept(ModItems.COIN_BLOCK.get());
+                        output.accept(ModItems.ATM.get());
                     })
                     .build());
 

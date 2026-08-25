@@ -18,5 +18,14 @@
   "commands.ravencoin.error.disabled": "Przelewy między graczami są na tym serwerze wyłączone",
   "commands.ravencoin.error.same_account": "Nie możesz przelać sobie samemu",
   "commands.ravencoin.error.one_player": "To musi wskazywać dokładnie jednego gracza",
+  "block.ravencoin.atm": "Bankomat RavenCoin",
+  "container.ravencoin.atm": "Bankomat",
+  "screen.ravencoin.atm.balance": "Konto: %s RC",
+  "screen.ravencoin.atm.carried": "Przy sobie: %s RC",
+  "screen.ravencoin.atm.amount": "Kwota",
+  "screen.ravencoin.atm.deposit": "Wpłać",
+  "screen.ravencoin.atm.withdraw": "Wypłać",
+  "screen.ravencoin.atm.deposited": "Wpłacono %s RC",
+  "screen.ravencoin.atm.withdrew": "Wypłacono %s RC",
   "commands.ravencoin.error.no_room": "Brak miejsca w ekwipunku na te monety"
 }
