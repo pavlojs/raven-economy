@@ -1,5 +1,22 @@
 {
   "item.ravencoin.coin": "RavenCoin",
   "block.ravencoin.coin_block": "Blok RavenCoinów",
-  "itemGroup.ravencoin.main": "RavenCoin"
+  "itemGroup.ravencoin.main": "RavenCoin",
+
+  "commands.ravencoin.balance.self": "Stan konta: %s RC",
+  "commands.ravencoin.balance.other": "%s ma %s RC",
+  "commands.ravencoin.pay.sent": "Przelano %s RC dla %s",
+  "commands.ravencoin.pay.received": "%s przelał(a) ci %s RC",
+  "commands.ravencoin.top.header": "Najbogatsze konta",
+  "commands.ravencoin.top.line": "%s. %s — %s RC",
+  "commands.ravencoin.top.empty": "Nikt nie ma jeszcze konta",
+  "commands.ravencoin.eco.add": "Dodano %s RC dla %s — stan konta: %s RC",
+  "commands.ravencoin.eco.take": "Zabrano %s RC graczowi %s — stan konta: %s RC",
+  "commands.ravencoin.eco.set": "Ustawiono stan konta gracza %2$s na %3$s RC",
+  "commands.ravencoin.error.invalid_amount": "To nie jest kwota, którą da się przelać",
+  "commands.ravencoin.error.insufficient_funds": "Za mało RavenCoinów",
+  "commands.ravencoin.error.too_large": "To konto nie pomieści więcej RavenCoinów",
+  "commands.ravencoin.error.disabled": "Przelewy między graczami są na tym serwerze wyłączone",
+  "commands.ravencoin.error.same_account": "Nie możesz przelać sobie samemu",
+  "commands.ravencoin.error.one_player": "To musi wskazywać dokładnie jednego gracza"
 }

@@ -68,6 +68,19 @@ public final class RavenCoinConfig {
         /** Whether players may transfer money to each other at all. */
         public final ModConfigSpec.BooleanValue payEnabled;
 
+        /**
+         * Whether to also register the bare command names.
+         *
+         * <p>Off by default, and deliberately so: {@code /balance}, {@code /pay}
+         * and {@code /baltop} are the names every economy mod and every server
+         * plugin wants, and two mods claiming one name is how a server ends up
+         * with a command that silently does the wrong thing. The prefixed forms
+         * under {@code /rc} are always registered and can never collide, so
+         * nothing is lost by leaving this off — turn it on when you know this is
+         * the only economy on the server.
+         */
+        public final ModConfigSpec.BooleanValue shortCommandAliases;
+
         private Common(ModConfigSpec.Builder builder) {
             builder.comment("RavenCoin — the White Ravens Forge economy").push("currency");
             mintingEnabled = builder
@@ -85,7 +98,14 @@ public final class RavenCoinConfig {
             builder.comment("Commands").push("commands");
             payEnabled = builder
                     .comment("Whether players can transfer money to each other.")
-                    .define("payEnabled", true);            builder.pop();
+                    .define("payEnabled", true);
+            shortCommandAliases = builder
+                    .comment(
+                            "Whether to register /balance, /bal, /pay and /baltop as well.",
+                            "The prefixed forms /rc and /ravencoin are always registered.",
+                            "Leave this off if another economy mod or plugin owns those names.")
+                    .define("shortCommandAliases", false);
+            builder.pop();
         }
     }
 

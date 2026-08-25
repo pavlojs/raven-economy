@@ -1,5 +1,22 @@
 {
   "item.ravencoin.coin": "RavenCoin",
   "block.ravencoin.coin_block": "Block of RavenCoin",
-  "itemGroup.ravencoin.main": "RavenCoin"
+  "itemGroup.ravencoin.main": "RavenCoin",
+
+  "commands.ravencoin.balance.self": "Balance: %s RC",
+  "commands.ravencoin.balance.other": "%s has %s RC",
+  "commands.ravencoin.pay.sent": "Paid %s RC to %s",
+  "commands.ravencoin.pay.received": "%s paid you %s RC",
+  "commands.ravencoin.top.header": "Richest accounts",
+  "commands.ravencoin.top.line": "%s. %s — %s RC",
+  "commands.ravencoin.top.empty": "Nobody has an account yet",
+  "commands.ravencoin.eco.add": "Added %s RC to %s, who now has %s RC",
+  "commands.ravencoin.eco.take": "Took %s RC from %s, who now has %s RC",
+  "commands.ravencoin.eco.set": "Set %2$s's balance to %3$s RC",
+  "commands.ravencoin.error.invalid_amount": "That is not an amount that can be moved",
+  "commands.ravencoin.error.insufficient_funds": "Not enough RavenCoin",
+  "commands.ravencoin.error.too_large": "That account cannot hold any more RavenCoin",
+  "commands.ravencoin.error.disabled": "Paying other players is switched off on this server",
+  "commands.ravencoin.error.same_account": "You cannot pay yourself",
+  "commands.ravencoin.error.one_player": "That has to name exactly one player"
 }
