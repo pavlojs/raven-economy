@@ -29,6 +29,8 @@ public enum RankPurchase {
     ALREADY_OWNED,
     /** The rung below has not been bought yet. */
     OUT_OF_ORDER,
+    /** The rank is granted for time played, so there is nothing to buy. */
+    EARNED_ONLY,
     /** The account cannot cover the price. */
     INSUFFICIENT_FUNDS,
     /** The permissions plugin refused or failed; the money has been returned. */

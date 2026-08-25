@@ -17,8 +17,12 @@ package net.whiteravens.ravencoin.rank;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.ModList;
 import net.whiteravens.ravencoin.RavenCoin;
@@ -39,6 +43,14 @@ public final class RankService {
 
     private static RankLadder ladder;
     private static Boolean permissionsAvailable;
+
+    /**
+     * Players with a playtime grant in flight.
+     *
+     * <p>Concurrent because it is cleared from whichever thread LuckPerms saved
+     * on, and read from the server thread on the next pass.
+     */
+    private static final Set<UUID> promoting = ConcurrentHashMap.newKeySet();
 
     /** Reads the ladder from disk. Called when the server starts and by {@code /rc rank reload}. */
     public static boolean reload() {
@@ -102,6 +114,13 @@ public final class RankService {
         if (owns(player, rank)) {
             return RankPurchase.ALREADY_OWNED;
         }
+        // A rank with a time requirement is earned, and a price on it is dead
+        // text. Selling it anyway would let a rung priced at zero — which is how
+        // a pure time rank is written — be claimed at nought hours by typing the
+        // buy command.
+        if (rank.earned()) {
+            return RankPurchase.EARNED_ONLY;
+        }
         Optional<Rank> needed = prerequisite(rank);
         if (needed.isPresent() && !owns(player, needed.get())) {
             return RankPurchase.OUT_OF_ORDER;
@@ -130,6 +149,99 @@ public final class RankService {
         });
 
         return RankPurchase.OK;
+    }
+
+    /**
+     * Grants whatever this player has now played long enough for.
+     *
+     * <p>Called on login and on a slow timer. Deliberately grants <b>one</b> rung
+     * per call, lowest first: a grant is asynchronous, so the second rung of a
+     * catch-up would be decided against a permissions state that has not caught
+     * up with the first. Someone who arrives already past several thresholds
+     * climbs them a timer-tick apart, which nobody will notice and nothing can
+     * get wrong.
+     *
+     * <p>Nothing here ever takes a group away. A rank bought with money and a
+     * rank earned with time land in the same place, and the automation must not
+     * be able to undo the one it did not hand out.
+     */
+    public static void promoteForPlaytime(ServerPlayer player) {
+        if (!enabled() || !RavenCoinConfig.COMMON.playtimePromotion.get()) {
+            return;
+        }
+        if (promoting.contains(player.getUUID())) {
+            return;
+        }
+        Optional<Rank> earned = nextEarned(player);
+        if (earned.isEmpty()) {
+            return;
+        }
+        Rank rank = earned.get();
+
+        // Held from here until LuckPerms has answered. Without it a save that
+        // takes longer than the timer would be granted — and announced — twice.
+        promoting.add(player.getUUID());
+        MinecraftServer server = player.getServer();
+        LuckPermsBridge.grant(player.getUUID(), rank.group()).whenComplete((ignored, failure) -> server.execute(() -> {
+            promoting.remove(player.getUUID());
+            if (failure != null) {
+                // No money changed hands, so there is nothing to put back and no
+                // reason to tell the player. The next pass tries again.
+                RavenCoin.LOG.error(
+                        "Could not grant {} to {} for playtime — will retry",
+                        rank.group(),
+                        player.getGameProfile().getName(),
+                        failure);
+                return;
+            }
+            RavenCoin.LOG.info(
+                    "{} reached {} after {}",
+                    player.getGameProfile().getName(),
+                    rank.id(),
+                    Playtime.format(Playtime.minutes(player)));
+            server.getPlayerList()
+                    .broadcastSystemMessage(
+                            Component.translatable(
+                                    "commands.ravencoin.rank.promoted",
+                                    player.getGameProfile().getName(),
+                                    rank.name()),
+                            false);
+        }));
+    }
+
+    /**
+     * {@return the lowest rung this player has earned and does not yet hold}
+     *
+     * <p>A prerequisite still counts. An operator who hangs a timed rank off a
+     * bought one means it, and time alone should not walk past the rung that has
+     * to be paid for.
+     */
+    public static Optional<Rank> nextEarned(ServerPlayer player) {
+        long played = Playtime.minutes(player);
+        for (Rank rank : ranks()) {
+            if (!rank.earned() || played < rank.playtimeMinutes() || owns(player, rank)) {
+                continue;
+            }
+            Optional<Rank> needed = prerequisite(rank);
+            if (needed.isPresent() && !owns(player, needed.get())) {
+                continue;
+            }
+            return Optional.of(rank);
+        }
+        return Optional.empty();
+    }
+
+    /** Sets or clears the time a rank takes to earn. {@return false if there is no such rank} */
+    public static boolean setPlaytime(String id, long minutes) {
+        if (ladder == null) {
+            return false;
+        }
+        Optional<Rank> rank = ladder.find(id);
+        if (rank.isEmpty()) {
+            return false;
+        }
+        ladder.put(rank.get().withPlaytime(minutes));
+        return true;
     }
 
     /**
@@ -183,10 +295,13 @@ public final class RankService {
         if (permissionsAvailable() && !LuckPermsBridge.groupExists(rank.group())) {
             return false;
         }
-        // Repricing a rank must not quietly drop the prerequisite someone set up
-        // with a separate command.
+        // Repricing a rank must not quietly drop the prerequisite or the time
+        // requirement someone set up with a separate command.
         Rank existing = ladder.find(rank.id()).orElse(null);
-        ladder.put(existing == null ? rank : rank.withRequires(existing.requires()));
+        ladder.put(
+                existing == null
+                        ? rank
+                        : rank.withRequires(existing.requires()).withPlaytime(existing.playtimeMinutes()));
         return true;
     }
 

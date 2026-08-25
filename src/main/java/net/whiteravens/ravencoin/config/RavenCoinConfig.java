@@ -109,6 +109,20 @@ public final class RavenCoinConfig {
          */
         public final ModConfigSpec.BooleanValue requireLadderOrder;
 
+        /**
+         * Whether ranks that carry a time requirement are handed out on their own.
+         *
+         * <p>Only ranks with {@code playtimeMinutes} set in the ladder file are
+         * ever granted this way, and nothing is ever taken back — so a rung
+         * somebody paid for, and every staff group, is untouched by this whether
+         * it is on or off.
+         *
+         * <p>Off is the setting for a season where every rank is meant to be
+         * bought. It stops the promotions; it does not undo the ones already
+         * given.
+         */
+        public final ModConfigSpec.BooleanValue playtimePromotion;
+
         private Common(ModConfigSpec.Builder builder) {
             builder.comment("RavenCoin — the White Ravens Forge economy").push("currency");
             mintingEnabled = builder
@@ -152,6 +166,13 @@ public final class RavenCoinConfig {
             requireLadderOrder = builder
                     .comment("Whether each rank requires the one below it to be owned first.")
                     .define("requireLadderOrder", true);
+            playtimePromotion = builder
+                    .comment(
+                            "Whether ranks with playtimeMinutes set are granted automatically.",
+                            "Time comes from the vanilla play_time statistic, so it counts time",
+                            "connected rather than time active. Ranks without it are unaffected,",
+                            "and no rank is ever taken away.")
+                    .define("playtimePromotion", true);
             builder.pop();
         }
     }

@@ -78,7 +78,9 @@ public final class RankLadder {
                 String requires = entry.has("requires") && !entry.get("requires").isJsonNull()
                         ? entry.get("requires").getAsString()
                         : null;
-                parsed.add(new Rank(id, group, price, name, requires));
+                long playtimeMinutes =
+                        entry.has("playtimeMinutes") ? entry.get("playtimeMinutes").getAsLong() : 0L;
+                parsed.add(new Rank(id, group, price, name, requires, playtimeMinutes));
             }
             return new RankLadder(parsed);
         } catch (IOException | RuntimeException broken) {
@@ -99,6 +101,9 @@ public final class RankLadder {
             entry.addProperty("name", rank.name());
             if (rank.requires() != null) {
                 entry.addProperty("requires", rank.requires());
+            }
+            if (rank.playtimeMinutes() > 0) {
+                entry.addProperty("playtimeMinutes", rank.playtimeMinutes());
             }
             array.add(entry);
         }

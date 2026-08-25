@@ -27,6 +27,7 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.whiteravens.ravencoin.economy.Amounts;
+import net.whiteravens.ravencoin.rank.Playtime;
 import net.whiteravens.ravencoin.rank.Rank;
 import net.whiteravens.ravencoin.rank.RankPurchase;
 import net.whiteravens.ravencoin.rank.RankService;
@@ -70,6 +71,14 @@ public final class RankCommands {
                                         .suggests(RANK_IDS)
                                         .executes(context -> requires(
                                                 context, StringArgumentType.getString(context, "required"))))))
+                .then(Commands.literal("playtime")
+                        .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("rank", StringArgumentType.word())
+                                .suggests(RANK_IDS)
+                                .then(Commands.literal("none").executes(context -> playtime(context, 0L)))
+                                .then(Commands.argument("minutes", LongArgumentType.longArg(1))
+                                        .executes(context -> playtime(
+                                                context, LongArgumentType.getLong(context, "minutes"))))))
                 .then(Commands.literal("remove")
                         .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
                         .then(Commands.argument("rank", StringArgumentType.word())
@@ -92,6 +101,9 @@ public final class RankCommands {
         }
 
         ServerPlayer viewer = context.getSource().getPlayer();
+        // "?" rather than a zero when the console asks: nobody has played no time,
+        // there is simply no player to measure.
+        String played = viewer == null ? "?" : Playtime.format(Playtime.minutes(viewer));
         context.getSource().sendSuccess(() -> Component.translatable("commands.ravencoin.rank.list.header"), false);
         for (Rank rank : ranks) {
             boolean owned = viewer != null && RankService.owns(viewer, rank);
@@ -104,6 +116,20 @@ public final class RankCommands {
                             () -> {
                                 if (owned) {
                                     return Component.translatable("commands.ravencoin.rank.list.owned", rank.name());
+                                }
+                                // An earned rank gets its own lines rather than the
+                                // priced ones — it has no price worth printing, and
+                                // saying "0 RC" would read as an invitation to buy it.
+                                if (rank.earned()) {
+                                    String at = Playtime.format(rank.playtimeMinutes());
+                                    return needed == null
+                                            ? Component.translatable(
+                                                    "commands.ravencoin.rank.list.earned", rank.name(), at, played)
+                                            : Component.translatable(
+                                                    "commands.ravencoin.rank.list.earned_locked",
+                                                    rank.name(),
+                                                    at,
+                                                    needed.name());
                                 }
                                 if (needed != null) {
                                     return Component.translatable(
@@ -146,7 +172,7 @@ public final class RankCommands {
         String id = StringArgumentType.getString(context, "rank");
         String group = StringArgumentType.getString(context, "group");
         long price = LongArgumentType.getLong(context, "price");
-        Rank rank = new Rank(id, group, price, name == null ? id : name, null);
+        Rank rank = new Rank(id, group, price, name == null ? id : name, null, 0L);
 
         if (!RankService.define(rank)) {
             context.getSource()
@@ -172,6 +198,22 @@ public final class RankCommands {
                         () -> requiredId == null
                                 ? Component.translatable("commands.ravencoin.rank.requires.cleared", id)
                                 : Component.translatable("commands.ravencoin.rank.requires.set", id, requiredId),
+                        true);
+        return 1;
+    }
+
+    private static int playtime(CommandContext<CommandSourceStack> context, long minutes) {
+        String id = StringArgumentType.getString(context, "rank");
+        if (!RankService.setPlaytime(id, minutes)) {
+            context.getSource().sendFailure(Component.translatable("commands.ravencoin.rank.error.unknown"));
+            return 0;
+        }
+        context.getSource()
+                .sendSuccess(
+                        () -> minutes == 0
+                                ? Component.translatable("commands.ravencoin.rank.playtime.cleared", id)
+                                : Component.translatable(
+                                        "commands.ravencoin.rank.playtime.set", id, Playtime.format(minutes)),
                         true);
         return 1;
     }
@@ -204,6 +246,7 @@ public final class RankCommands {
             case UNKNOWN_RANK -> "commands.ravencoin.rank.error.unknown";
             case ALREADY_OWNED -> "commands.ravencoin.rank.error.already_owned";
             case OUT_OF_ORDER -> "commands.ravencoin.rank.error.out_of_order";
+            case EARNED_ONLY -> "commands.ravencoin.rank.error.earned_only";
             case INSUFFICIENT_FUNDS -> "commands.ravencoin.error.insufficient_funds";
             case FAILED -> "commands.ravencoin.rank.error.failed";
             case OK -> throw new IllegalArgumentException("OK is not an error");
