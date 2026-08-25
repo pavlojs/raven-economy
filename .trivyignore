@@ -1,0 +1,10 @@
+# Trivy suppressions.
+#
+# The Security workflow runs Trivy with `scanners: secret,misconfig` only.
+# Dependency advisories reach this repository through Dependabot and the
+# dependency graph submitted by the Security workflow, where each one is a PR
+# with a version behind it rather than a line in a file. Keep it that way: a CVE
+# suppressed here would be invisible to that process.
+#
+# Format: one finding ID per line, each with a comment explaining why.
+# Currently empty.

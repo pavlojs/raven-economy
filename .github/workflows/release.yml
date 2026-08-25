@@ -1,0 +1,143 @@
+# ── RavenCoin — Release ───────────────────────────────────────────────────────
+#
+# Triggered by a tag of the form v<minecraft>-<version>, pushed from main:
+#
+#   v1.21.1-0.1.0-beta.1     →  RavenCoin 0.1.0-beta.1 for Minecraft 1.21.1
+#
+# The Minecraft version is part of the tag because the same mod version can
+# exist for two Minecraft lines at once. A tag that says only `v0.2.0` cannot
+# say which jar it produced, and neither can the release page.
+#
+# Produces, for one tag:
+#   ravencoin-<mc>-<version>.jar           the mod
+#   ravencoin-<mc>-<version>-sources.jar   sources, per Apache-2.0 good manners
+#   SHA256SUMS.txt                         checksums over both
+#
+# The release is created as a DRAFT, so the jar can be checked before anyone can
+# download it. A version containing -alpha, -beta or -rc is additionally marked
+# as a pre-release.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Release — Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# A second tag pushed while one is building must not race it onto the same draft.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  # ── Job 0: guard ────────────────────────────────────────────────────────────
+  # Three things have to agree before anything is built: the tag's shape, the
+  # branch it is on, and what gradle.properties says the jar will claim to be.
+  # The third is the one that matters — a tag reading 0.2.0 on a build that
+  # produces 0.1.0 would put a mislabelled jar on a release page forever.
+  check:
+    name: Verify tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      mc: ${{ steps.parse.outputs.mc }}
+      version: ${{ steps.parse.outputs.version }}
+      prerelease: ${{ steps.parse.outputs.prerelease }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Parse the tag
+        id: parse
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+(\.[0-9]+)?)-(.+)$ ]]; then
+            echo "::error::Tag '$tag' is not of the form v<minecraft>-<version>, e.g. v1.21.1-0.1.0-beta.1"
+            exit 1
+          fi
+          mc="${BASH_REMATCH[1]}"
+          version="${BASH_REMATCH[3]}"
+
+          prerelease=false
+          [[ "$version" == *-alpha* || "$version" == *-beta* || "$version" == *-rc* ]] && prerelease=true
+
+          {
+            echo "mc=$mc"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tag $tag → RavenCoin $version for Minecraft $mc (prerelease: $prerelease)"
+
+      # github.event.base_ref is not reliable for tags pushed with
+      # `git push origin <tag>`, so check reachability from origin/main directly.
+      - name: The tag must point at a commit on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::${GITHUB_REF#refs/tags/} is not reachable from main. Sync dev into main first."
+            exit 1
+          fi
+
+      - name: The tag must agree with gradle.properties
+        run: |
+          prop() { grep -E "^$1=" gradle.properties | cut -d= -f2- | tr -d '[:space:]'; }
+          built_mc="$(prop minecraft_version)"
+          built_version="$(prop mod_version)"
+          fail=0
+          if [ "$built_mc" != "${{ steps.parse.outputs.mc }}" ]; then
+            echo "::error::Tag says Minecraft ${{ steps.parse.outputs.mc }}, gradle.properties says $built_mc"
+            fail=1
+          fi
+          if [ "$built_version" != "${{ steps.parse.outputs.version }}" ]; then
+            echo "::error::Tag says version ${{ steps.parse.outputs.version }}, gradle.properties says $built_version"
+            fail=1
+          fi
+          exit $fail
+
+  # ── Job 1: build and publish ────────────────────────────────────────────────
+  release:
+    name: Build & publish
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build
+        run: ./gradlew build --no-daemon
+
+      - name: Checksums
+        working-directory: build/libs
+        run: |
+          sha256sum ./*.jar > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          MC: ${{ needs.check.outputs.mc }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          args=(--draft --generate-notes --title "RavenCoin $VERSION — Minecraft $MC")
+          if [ "${{ needs.check.outputs.prerelease }}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG" "${args[@]}" build/libs/*.jar build/libs/SHA256SUMS.txt

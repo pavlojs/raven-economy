@@ -1,0 +1,90 @@
+name: Security
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    # Weekly on Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+
+jobs:
+  # There is no `npm audit` equivalent for Gradle, and pretending otherwise by
+  # bolting on a scanner with its own advisory database would give this repo two
+  # sources of truth that disagree. Instead the resolved dependency graph is
+  # submitted to GitHub, which is what makes Dependabot alerts fire on it at
+  # all — without this, a vulnerable transitive dependency of the NeoForge
+  # toolchain is invisible here.
+  dependency-graph:
+    name: Submit dependency graph
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Submit
+        uses: gradle/actions/dependency-submission@v6
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    # Only runs on pull requests — compares new deps against known vulnerabilities
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+          # Apache-2.0 is a permissive licence, and this mod ships as a single
+          # jar with nothing bundled inside it — its one dependency is
+          # compileOnly. A strong-copyleft dependency appearing here would mean
+          # something is about to be linked that cannot be, so fail on it.
+          deny-licenses: GPL-3.0, AGPL-3.0, SSPL-1.0
+
+  scan:
+    name: Trivy secret & config scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Limited to secret+misconfig on purpose — see .trivyignore. Dependency
+      # advisories arrive through Dependabot and the graph submitted above,
+      # where each one is a PR with a version behind it.
+      - name: Run Trivy on repository
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-fs.sarif
+          trivyignores: .trivyignore
+          limit-severities-for-sarif: true
+          exit-code: '1'
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
