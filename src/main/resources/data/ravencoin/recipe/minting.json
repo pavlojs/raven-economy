@@ -6,9 +6,9 @@
   "category": "misc",
   "key": {
     "g": { "tag": "c:ingots/gold" },
-    "e": { "tag": "c:gems/emerald" },
-    "d": { "tag": "c:gems/diamond" }
+    "d": { "tag": "c:gems/diamond" },
+    "a": { "tag": "c:gems/amethyst" }
   },
-  "pattern": ["ggg", "ede", "ggg"],
+  "pattern": ["ggg", "dad", "ggg"],
   "result": { "count": 1, "id": "ravencoin:coin_block" }
 }
