@@ -11,8 +11,12 @@ repositories {
     mavenLocal()
 }
 
+// The Minecraft line belongs in the file name, not only in the metadata. One
+// day this mod will exist for two of them at once, and `ravencoin-0.2.0.jar`
+// would then be two different files with one name — in a downloads folder, in
+// a pack's cache, in a bug report. `ravencoin-1.21.1-0.2.0.jar` cannot be.
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-${minecraft_version}"
 }
 
 // Minecraft 1.21.1 runs on Java 21. Pinning the toolchain rather than
