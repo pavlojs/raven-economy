@@ -5,6 +5,7 @@ build/
 
 # NeoForge
 run/
+run-client/
 runs/
 repo/
 
