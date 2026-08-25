@@ -55,6 +55,19 @@ public final class RavenCoinConfig {
          */
         public final ModConfigSpec.BooleanValue mintingEnabled;
 
+        /**
+         * What a brand new account opens with.
+         *
+         * <p>Charged to nobody — this is minted out of nothing the first time a
+         * player logs in, so it is part of the money supply just as much as the
+         * recipe is. Zero means players start with nothing and the first coin
+         * has to be earned.
+         */
+        public final ModConfigSpec.LongValue startingBalance;
+
+        /** Whether players may transfer money to each other at all. */
+        public final ModConfigSpec.BooleanValue payEnabled;
+
         private Common(ModConfigSpec.Builder builder) {
             builder.comment("RavenCoin — the White Ravens Forge economy").push("currency");
             mintingEnabled = builder
@@ -64,7 +77,15 @@ public final class RavenCoinConfig {
                             "false — the server shop, quests and ranks are the only sources of coin.",
                             "Changing this needs a restart: recipes are built when the datapack loads.")
                     .define("mintingEnabled", true);
+            startingBalance = builder
+                    .comment("How much RavenCoin a player's account is opened with on first login.")
+                    .defineInRange("startingBalance", 0L, 0L, Long.MAX_VALUE);
             builder.pop();
+
+            builder.comment("Commands").push("commands");
+            payEnabled = builder
+                    .comment("Whether players can transfer money to each other.")
+                    .define("payEnabled", true);            builder.pop();
         }
     }
 
