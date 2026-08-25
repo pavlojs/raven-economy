@@ -68,11 +68,13 @@ public final class EconomyCommands {
                 .then(balance("balance"))
                 .then(pay("pay"))
                 .then(top("top"))
+                .then(RankCommands.rank())
                 .then(eco()));
         dispatcher.register(Commands.literal("ravencoin")
                 .then(balance("balance"))
                 .then(pay("pay"))
                 .then(top("top"))
+                .then(RankCommands.rank())
                 .then(eco()));
 
         if (RavenCoinConfig.COMMON.shortCommandAliases.get()) {

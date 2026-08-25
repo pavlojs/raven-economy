@@ -81,6 +81,24 @@ public final class RavenCoinConfig {
          */
         public final ModConfigSpec.BooleanValue shortCommandAliases;
 
+        /**
+         * Whether ranks can be bought at all.
+         *
+         * <p>Off is not the same as an empty ladder: with this off the rank tab
+         * and commands say so plainly, rather than showing a shop with nothing
+         * in it.
+         */
+        public final ModConfigSpec.BooleanValue ranksEnabled;
+
+        /**
+         * Whether a rank can only be bought once the one below it is held.
+         *
+         * <p>On, the ladder is a ladder. Off, a player with enough saved can jump
+         * straight to the top, which is a different kind of server — and cheaper
+         * for them, since they skip paying for every rung on the way.
+         */
+        public final ModConfigSpec.BooleanValue requireLadderOrder;
+
         private Common(ModConfigSpec.Builder builder) {
             builder.comment("RavenCoin — the White Ravens Forge economy").push("currency");
             mintingEnabled = builder
@@ -105,6 +123,17 @@ public final class RavenCoinConfig {
                             "The prefixed forms /rc and /ravencoin are always registered.",
                             "Leave this off if another economy mod or plugin owns those names.")
                     .define("shortCommandAliases", false);
+            builder.pop();
+
+            builder.comment("Ranks — the ladder itself lives in ravencoin-ranks.json").push("ranks");
+            ranksEnabled = builder
+                    .comment(
+                            "Whether ranks can be bought with RavenCoin.",
+                            "Needs a permissions plugin; without LuckPerms this does nothing.")
+                    .define("ranksEnabled", true);
+            requireLadderOrder = builder
+                    .comment("Whether each rank requires the one below it to be owned first.")
+                    .define("requireLadderOrder", true);
             builder.pop();
         }
     }

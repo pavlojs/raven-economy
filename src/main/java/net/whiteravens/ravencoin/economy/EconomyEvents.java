@@ -19,9 +19,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.rank.RankService;
 
-/** Opens an account the first time someone joins, and keeps the stored name current. */
+/**
+ * Opens an account the first time someone joins, keeps the stored name current,
+ * and reads the rank ladder while the server is coming up.
+ */
 @EventBusSubscriber(modid = RavenCoin.MOD_ID)
 public final class EconomyEvents {
     @SubscribeEvent
@@ -29,6 +34,11 @@ public final class EconomyEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             EconomyService.onLogin(player);
         }
+    }
+
+    @SubscribeEvent
+    public static void onServerStarting(ServerStartingEvent event) {
+        RankService.reload();
     }
 
     private EconomyEvents() {}
