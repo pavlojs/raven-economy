@@ -448,7 +448,12 @@ public class ShopBlockEntity extends BlockEntity {
         this.ownerName = tag.getString("OwnerName");
         this.owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
         this.trades = tag.getInt("Trades");
-        this.stockSide = tag.contains("StockSide") ? Direction.values()[tag.getByte("StockSide")] : null;
+        // from3DDataValue rather than values()[…]: this byte comes off disk, and a
+        // corrupt or hand-edited one indexed straight into the array throws while
+        // the block entity is loading, which fails the whole chunk. The 3D data
+        // value is also the stable id — it happens to equal the ordinal today, so
+        // this reads saves written by earlier versions unchanged.
+        this.stockSide = tag.contains("StockSide") ? Direction.from3DDataValue(tag.getByte("StockSide")) : null;
     }
 
     private void write(CompoundTag tag, HolderLookup.Provider registries) {
@@ -465,7 +470,7 @@ public class ShopBlockEntity extends BlockEntity {
         tag.putString("OwnerName", this.ownerName);
         tag.putInt("Trades", this.trades);
         if (this.stockSide != null) {
-            tag.putByte("StockSide", (byte) this.stockSide.ordinal());
+            tag.putByte("StockSide", (byte) this.stockSide.get3DDataValue());
         }
     }
 
