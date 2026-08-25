@@ -3,10 +3,9 @@
   "category": "misc",
   "key": {
     "i": { "tag": "c:ingots/iron" },
-    "g": { "tag": "c:ingots/gold" },
-    "c": { "item": "ravencoin:coin_block" },
+    "g": { "tag": "c:storage_blocks/gold" },
     "r": { "tag": "c:storage_blocks/redstone" }
   },
-  "pattern": ["iii", "gcg", "iri"],
+  "pattern": ["iii", "igi", "iri"],
   "result": { "count": 1, "id": "ravencoin:atm" }
 }

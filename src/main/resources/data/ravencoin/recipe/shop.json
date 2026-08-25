@@ -4,8 +4,8 @@
   "key": {
     "p": { "tag": "minecraft:planks" },
     "i": { "tag": "c:ingots/iron" },
-    "c": { "item": "ravencoin:coin" }
+    "e": { "tag": "c:gems/emerald" }
   },
-  "pattern": ["ppp", "pcp", "iii"],
+  "pattern": ["ppp", "pep", "iii"],
   "result": { "count": 1, "id": "ravencoin:shop" }
 }
