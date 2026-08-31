@@ -61,7 +61,7 @@ dependencies {
     compileOnly 'net.luckperms:api:5.5'
 
     errorprone 'com.google.errorprone:error_prone_core:2.50.0'
-    errorprone 'com.uber.nullaway:nullaway:0.13.8'
+    errorprone 'com.uber.nullaway:nullaway:0.14.0'
 }
 
 // Expand gradle.properties into neoforge.mods.toml so the version lives in one
