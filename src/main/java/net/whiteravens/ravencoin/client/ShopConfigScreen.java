@@ -117,6 +117,8 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
 
         // A market stall's goods live in a barrel on a claim its renter cannot
         // open. This button is how they reach it, and the only way they can.
+        // A market stall's goods live in a barrel on a claim its renter cannot
+        // open. This button is how they reach it, and the only way they can.
         ShopBlockEntity stall = this.menu.shop();
         if (stall != null && !stall.bottomless()) {
             this.restock = Button.builder(
@@ -256,6 +258,12 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
                     160,
                     0x555555,
                     false);
+        } else if (shop != null && !shop.hasContainer()) {
+            // Same reasoning as the closed line, and it was missed for the same
+            // reason: "Brak pojemnika przy sklepie" is 142px and arrived as
+            // "Brak pojemnika pr…". There is no count to make room for anyway —
+            // a shop with no container has nothing to count.
+            Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 84, 160, 0x555555, false);
         } else if (shop != null) {
             Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 84, 100, 0x555555, false);
             // What the trade count is made of. An owner restocking wants units,
