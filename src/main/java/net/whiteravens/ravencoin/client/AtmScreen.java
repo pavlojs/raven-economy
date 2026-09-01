@@ -15,6 +15,7 @@
  */
 package net.whiteravens.ravencoin.client;
 
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,10 +28,12 @@ import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.config.RavenCoinConfig;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.menu.AtmMenu;
 import net.whiteravens.ravencoin.network.AtmActionPayload;
 import net.whiteravens.ravencoin.network.AtmListPayload;
+import net.whiteravens.ravencoin.network.AtmNoticePayload;
 import net.whiteravens.ravencoin.network.AtmRankBuyPayload;
 import net.whiteravens.ravencoin.network.AtmRequestPayload;
 import net.whiteravens.ravencoin.network.AtmTransferPayload;
@@ -72,7 +75,22 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
     /** Read-only rows are just text, and pack in twice as tight. */
     private static final int TEXT_PITCH = 12;
 
-    private static final int STATEMENT_ROWS = 10;
+    /**
+     * The statement is set smaller than the rest of the screen.
+     *
+     * <p>Its lines are the longest anything here produces — a time, a verb and
+     * whatever the other side was called — and three quarters buys back a third
+     * of the characters. Below this it stops being reading and starts being
+     * texture, which is what the tooltip is for.
+     */
+    private static final float STATEMENT_SCALE = 0.75F;
+
+    private static final int STATEMENT_PITCH = 10;
+
+    private static final int STATEMENT_ROWS = 11;
+
+    /** Where an outcome from the server is written, above the footer. */
+    private static final int NOTICE_Y = 162;
 
     /** Where a row's right-hand half ends, and where it ends when a button follows it. */
     private static final int DETAIL_RIGHT = 166;
@@ -87,6 +105,11 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
     private View view = View.MENU;
     private List<AtmListPayload.Row> rows = List.of();
     private int scroll;
+
+    @Nullable
+    private Component notice;
+
+    private boolean noticeIsError;
 
     @Nullable
     private EditBox amountField;
@@ -115,6 +138,20 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
         }
     }
 
+    /**
+     * Takes an outcome and shows it where the button was.
+     *
+     * <p>Nothing is cleared on a timer: a refusal stays until the player does
+     * something else, because a message that vanishes while you are reading it
+     * is the same as no message.
+     */
+    public static void notice(AtmNoticePayload payload, IPayloadContext context) {
+        if (Minecraft.getInstance().screen instanceof AtmScreen screen) {
+            screen.notice = payload.text();
+            screen.noticeIsError = payload.error();
+        }
+    }
+
     @Override
     protected void init() {
         super.init();
@@ -134,12 +171,15 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
     // ------------------------------------------------------------------ pages
 
     private void menuPage() {
-        View[] entries = {View.BANK, View.TRANSFER, View.HISTORY, View.RANKS, View.TOP};
-        // Spread over the whole content area rather than stacked at the top:
-        // five buttons and a footer's worth of room, so they use it.
-        int pitch = (FOOTER_Y - CONTENT_TOP - 18) / (entries.length - 1);
-        for (int i = 0; i < entries.length; i++) {
-            View entry = entries[i];
+        List<View> entries = new ArrayList<>(List.of(View.BANK, View.TRANSFER, View.HISTORY, View.RANKS));
+        if (RavenCoinConfig.CLIENT.showLeaderboard.get()) {
+            entries.add(View.TOP);
+        }
+        // Spread over the whole content area rather than stacked at the top, so
+        // the menu fills the panel whether or not the leaderboard is on it.
+        int pitch = (FOOTER_Y - CONTENT_TOP - 18) / Math.max(1, entries.size() - 1);
+        for (int i = 0; i < entries.size(); i++) {
+            View entry = entries.get(i);
             this.addRenderableWidget(Button.builder(
                             Component.translatable(entry.key), button -> this.open(entry))
                     .bounds(this.leftPos + MARGIN, this.topPos + CONTENT_TOP + i * pitch, FULL_WIDTH, 18)
@@ -239,6 +279,7 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
         this.view = next;
         this.rows = List.of();
         this.scroll = 0;
+        this.notice = null;
         if (next.page != null) {
             PacketDistributor.sendToServer(new AtmRequestPayload(next.page));
         }
@@ -252,19 +293,40 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
 
     private void send(AtmActionPayload.Action action) {
         long amount = this.amount();
-        if (amount > 0) {
-            PacketDistributor.sendToServer(new AtmActionPayload(action, amount));
-            this.clear(this.amountField);
+        if (amount <= 0) {
+            this.refuse("screen.ravencoin.atm.error.no_amount");
+            return;
         }
+        PacketDistributor.sendToServer(new AtmActionPayload(action, amount));
+        this.clear(this.amountField);
     }
 
+    /**
+     * Sends a transfer, once the two halves the client can check are filled in.
+     *
+     * <p>Whether the name belongs to anybody is not one of them — only the
+     * server holds the accounts — so that half comes back as a refusal under the
+     * field. What is checked here is only what a button doing nothing would
+     * otherwise leave the player guessing about.
+     */
     private void transfer() {
-        long amount = this.amount();
         String payee = this.playerField == null ? "" : this.playerField.getValue().trim();
-        if (amount > 0 && !payee.isEmpty()) {
-            PacketDistributor.sendToServer(new AtmTransferPayload(payee, amount));
-            this.clear(this.amountField);
+        if (payee.isEmpty()) {
+            this.refuse("screen.ravencoin.atm.error.no_player");
+            return;
         }
+        long amount = this.amount();
+        if (amount <= 0) {
+            this.refuse("screen.ravencoin.atm.error.no_amount");
+            return;
+        }
+        PacketDistributor.sendToServer(new AtmTransferPayload(payee, amount));
+        this.clear(this.amountField);
+    }
+
+    private void refuse(String key) {
+        this.notice = Component.translatable(key);
+        this.noticeIsError = true;
     }
 
     private void buy(String rank) {
@@ -326,11 +388,28 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
                 false);
 
         switch (this.view) {
-            case RANKS -> this.drawRows(graphics, RANK_PITCH, 5, this.rows.size(), 0);
-            case TOP -> this.drawRows(graphics, TEXT_PITCH, 2, this.rows.size(), 0);
+            case RANKS -> this.drawRows(graphics, RANK_PITCH, 5, this.rows.size(), 0, 1.0F);
+            case TOP -> this.drawRows(graphics, TEXT_PITCH, 2, this.rows.size(), 0, 1.0F);
             case HISTORY -> this.drawRows(
-                    graphics, TEXT_PITCH, 2, Math.min(STATEMENT_ROWS, this.rows.size() - this.scroll), this.scroll);
+                    graphics,
+                    STATEMENT_PITCH,
+                    1,
+                    Math.min(STATEMENT_ROWS, this.rows.size() - this.scroll),
+                    this.scroll,
+                    STATEMENT_SCALE);
             default -> { }
+        }
+
+        if (this.notice != null) {
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    this.notice,
+                    MARGIN,
+                    NOTICE_Y,
+                    FULL_WIDTH,
+                    this.noticeIsError ? 0xAA0000 : 0x006622,
+                    false);
         }
 
         Branding.draw(graphics, this.font, DETAIL_RIGHT + 2, this.imageHeight - 20);
@@ -339,29 +418,77 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
     /**
      * Draws {@code count} rows starting at {@code from}.
      *
-     * @param textOffset how far below the row's top the 8-pixel text sits, so a
-     *                   line beside an 18-pixel button is centred against it
+     * <p>Everything is divided by the scale rather than the scale being applied
+     * afterwards: inside a scaled pose every coordinate is in the scaled space,
+     * so a row drawn at the panel's own numbers would land somewhere else
+     * entirely. At scale 1 the division is identity and this is the plain path.
+     *
+     * @param textOffset how far below the row's top the text sits, so a line
+     *                   beside an 18-pixel button is centred against it
      */
-    private void drawRows(GuiGraphics graphics, int pitch, int textOffset, int count, int from) {
+    private void drawRows(GuiGraphics graphics, int pitch, int textOffset, int count, int from, float scale) {
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1.0F);
+        int labelX = Math.round(LABEL_X / scale);
+
         for (int i = 0; i < count; i++) {
             AtmListPayload.Row row = this.rows.get(from + i);
-            int y = CONTENT_TOP + i * pitch + textOffset;
-            int right = row.actionable() ? DETAIL_RIGHT_WITH_BUTTON : DETAIL_RIGHT;
+            int y = Math.round((CONTENT_TOP + i * pitch + textOffset) / scale);
+            int right = Math.round((row.actionable() ? DETAIL_RIGHT_WITH_BUTTON : DETAIL_RIGHT) / scale);
             // The right-hand half is measured first and takes what it needs, up
             // to leaving the label a readable stub. It is the half that carries
             // the number, and a clipped price says less than a clipped name.
-            int detailRoom = right - LABEL_X - MIN_LABEL;
+            int detailRoom = right - labelX - Math.round(MIN_LABEL / scale);
             int detailWidth = Math.min(this.font.width(row.detail()), detailRoom);
             Labels.drawRight(graphics, this.font, row.detail(), right, y, detailRoom, 0x555555);
             Labels.draw(
                     graphics,
                     this.font,
                     row.label(),
-                    LABEL_X,
+                    labelX,
                     y,
-                    right - detailWidth - LABEL_X - 4,
+                    right - detailWidth - labelX - Math.round(4 / scale),
                     0x404040,
                     false);
+        }
+        graphics.pose().popPose();
+    }
+
+    /**
+     * The whole of a row, on hover.
+     *
+     * <p>The statement is the page that needs this: its lines are set small and
+     * clipped, and "Kupno: Yellow Laser…" is exactly the half of a line somebody
+     * wants the rest of. Drawn from the unclipped components, so the tooltip is
+     * the row rather than a longer guess at it.
+     */
+    private void rowTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int pitch = this.view == View.RANKS ? RANK_PITCH : this.view == View.HISTORY ? STATEMENT_PITCH : TEXT_PITCH;
+        int shown = this.view == View.HISTORY
+                ? Math.min(STATEMENT_ROWS, this.rows.size() - this.scroll)
+                : this.rows.size();
+        int x = mouseX - this.leftPos;
+        int y = mouseY - this.topPos - CONTENT_TOP;
+        if (x < MARGIN || x > MARGIN + FULL_WIDTH || y < 0) {
+            return;
+        }
+        int index = y / pitch;
+        if (index < 0 || index >= shown) {
+            return;
+        }
+        AtmListPayload.Row row = this.rows.get(this.scroll + index);
+        graphics.renderTooltip(
+                this.font,
+                List.of(row.label().getVisualOrderText(), row.detail().getVisualOrderText()),
+                mouseX,
+                mouseY);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        if (this.view.page != null) {
+            this.rowTooltip(graphics, mouseX, mouseY);
         }
     }
 

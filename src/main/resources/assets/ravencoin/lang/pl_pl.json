@@ -135,5 +135,7 @@
   "screen.ravencoin.atm.rank.earned": "%2$s z %1$s",
   "screen.ravencoin.shop.units": "%s×",
   "screen.ravencoin.shop.purse.pocket": "Kieszeń",
-  "screen.ravencoin.shop.purse.account": "Konto"
+  "screen.ravencoin.shop.purse.account": "Konto",
+  "screen.ravencoin.atm.error.no_amount": "Najpierw wpisz kwotę",
+  "screen.ravencoin.atm.error.no_player": "Wpisz, komu przelać"
 }

@@ -61,6 +61,20 @@ public final class RavenCoinConfig {
         /** Whether the screens carry the White Ravens Financial Systems mark. */
         public final ModConfigSpec.BooleanValue showBranding;
 
+        /**
+         * Whether the bank's menu offers the leaderboard at all.
+         *
+         * <p>Off by default, because a bank that opens on a list of who is
+         * richer than you sets the tone for a season badly, and because a
+         * leaderboard is the one page whose numbers are about other people.
+         *
+         * <p>Display rather than policy, and deliberately: {@code /rc top}
+         * exists and is open to everybody, so hiding the page conceals
+         * nothing that was not already a command away. If those balances
+         * should be private, the command is what to switch off.
+         */
+        public final ModConfigSpec.BooleanValue showLeaderboard;
+
         private Client(ModConfigSpec.Builder builder) {
             builder.comment("What this mod's own screens draw").push("display");
             showBranding = builder
@@ -69,6 +83,12 @@ public final class RavenCoinConfig {
                             "'White Ravens Financial Systems' mark in the corner.",
                             "Cosmetic, and yours alone — this changes nobody else's screen.")
                     .define("showBranding", true);
+            showLeaderboard = builder
+                    .comment(
+                            "Whether the bank's menu offers the Leaderboard page.",
+                            "Off by default. /rc top shows the same list either way,",
+                            "so this is about the bank's front page, not about privacy.")
+                    .define("showLeaderboard", false);
             builder.pop();
         }
     }

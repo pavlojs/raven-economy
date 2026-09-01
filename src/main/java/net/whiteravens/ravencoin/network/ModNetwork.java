@@ -75,8 +75,10 @@ public final class ModNetwork {
         }
         AtmMenu.Outcome outcome = menu.transfer(payload.player(), payload.amount());
         if (!outcome.result().ok()) {
-            player.sendSystemMessage(
-                    Component.translatable(errorKey(outcome.result())).withStyle(ChatFormatting.RED));
+            // Chiefly UNKNOWN_PLAYER: the name is the one field on this screen
+            // that can be wrong in a way the client cannot see, and the answer
+            // belongs under it rather than in chat behind the screen.
+            refuse(player, Component.translatable(errorKey(outcome.result())));
             return;
         }
 
@@ -90,7 +92,7 @@ public final class ModNetwork {
                         LedgerEntry.Kind.PAY_IN,
                         outcome.amount(),
                         player.getGameProfile().getName()));
-        player.sendSystemMessage(Component.translatable(
+        tell(player, Component.translatable(
                 "commands.ravencoin.pay.sent", Amounts.format(outcome.amount()), payee));
         ServerPlayer online = player.server.getPlayerList().getPlayerByName(payee);
         if (online != null) {
@@ -122,14 +124,24 @@ public final class ModNetwork {
         }
         RankPurchase result = RankService.buy(player, payload.rank());
         if (result.ok()) {
-            RankService.find(payload.rank())
-                    .ifPresent(rank -> EconomyService.note(
-                            player.server, player.getUUID(), LedgerEntry.Kind.RANK, rank.price(), rank.name()));
+            RankService.find(payload.rank()).ifPresent(rank -> {
+                EconomyService.note(
+                        player.server, player.getUUID(), LedgerEntry.Kind.RANK, rank.price(), rank.name());
+                tell(player, Component.translatable(
+                        "commands.ravencoin.rank.bought", rank.name(), Amounts.format(rank.price())));
+            });
         } else {
-            player.sendSystemMessage(
-                    Component.translatable(RankCommands.errorKey(result)).withStyle(ChatFormatting.RED));
+            refuse(player, Component.translatable(RankCommands.errorKey(result)));
         }
         PacketDistributor.sendToPlayer(player, AtmPages.build(player, Page.RANKS));
+    }
+
+    private static void tell(ServerPlayer player, Component text) {
+        PacketDistributor.sendToPlayer(player, new AtmNoticePayload(text, false));
+    }
+
+    private static void refuse(ServerPlayer player, Component text) {
+        PacketDistributor.sendToPlayer(player, new AtmNoticePayload(text, true));
     }
 
     /** {@return the ATM menu the sender has open, or null if they have not} */
@@ -221,7 +233,11 @@ public final class ModNetwork {
                     outcome.amount(),
                     "");
         }
-        player.sendSystemMessage(message(payload.action(), outcome));
+        if (outcome.result().ok()) {
+            tell(player, message(payload.action(), outcome));
+        } else {
+            refuse(player, message(payload.action(), outcome));
+        }
     }
 
     private static Component message(AtmActionPayload.Action action, AtmMenu.Outcome outcome) {

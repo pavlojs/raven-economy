@@ -135,5 +135,7 @@
   "screen.ravencoin.atm.rank.earned": "%2$s of %1$s",
   "screen.ravencoin.shop.units": "%s×",
   "screen.ravencoin.shop.purse.pocket": "Pocket",
-  "screen.ravencoin.shop.purse.account": "Account"
+  "screen.ravencoin.shop.purse.account": "Account",
+  "screen.ravencoin.atm.error.no_amount": "Type an amount first",
+  "screen.ravencoin.atm.error.no_player": "Type who to pay"
 }
