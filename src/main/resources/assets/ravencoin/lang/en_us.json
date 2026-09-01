@@ -79,7 +79,7 @@
   "screen.ravencoin.shop.label_on": "Sign: on",
   "screen.ravencoin.shop.label_off": "Sign: off",
   "screen.ravencoin.shop.apply": "Apply",
-  "screen.ravencoin.shop.error.not_set_up": "This shop has not been set up yet",
+  "screen.ravencoin.shop.error.not_set_up": "This shop is not set up yet",
   "screen.ravencoin.shop.error.no_container": "This shop has no container to sell from",
   "screen.ravencoin.shop.error.out_of_stock": "This shop is out of stock",
   "screen.ravencoin.shop.error.till_full": "This shop has nowhere to put the payment",

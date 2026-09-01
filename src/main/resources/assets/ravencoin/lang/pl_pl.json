@@ -79,7 +79,7 @@
   "screen.ravencoin.shop.label_on": "Szyld: wł.",
   "screen.ravencoin.shop.label_off": "Szyld: wył.",
   "screen.ravencoin.shop.apply": "Zapisz",
-  "screen.ravencoin.shop.error.not_set_up": "Ten sklep nie został jeszcze ustawiony",
+  "screen.ravencoin.shop.error.not_set_up": "Sklep nie jest ustawiony",
   "screen.ravencoin.shop.error.no_container": "Ten sklep nie ma pojemnika, z którego miałby sprzedawać",
   "screen.ravencoin.shop.error.out_of_stock": "W tym sklepie skończył się towar",
   "screen.ravencoin.shop.error.till_full": "Ten sklep nie ma gdzie schować zapłaty",
