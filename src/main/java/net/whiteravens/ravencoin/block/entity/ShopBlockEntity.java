@@ -138,17 +138,32 @@ public class ShopBlockEntity extends BlockEntity {
      * this instead — whether the goods come from nowhere.
      */
     public boolean bottomless() {
-        return this.admin() && this.owner == null;
+        return this.admin() && !this.owned();
     }
 
     /** {@return whether this is a server shop somebody is renting} */
     public boolean rented() {
-        return this.admin() && this.owner != null;
+        return this.admin() && this.owned();
     }
 
     /** {@return whether this is a stall standing empty, waiting for a renter} */
     public boolean toLet() {
-        return this.rentable && this.admin() && this.owner == null;
+        return this.rentable && this.admin() && !this.owned();
+    }
+
+    /**
+     * {@return whether anybody holds this shop}
+     *
+     * <p>Asked of the owner's name and not their UUID, because all three
+     * questions above it are asked on a client as well — the sign, the rent
+     * page, the arrears lock — and the UUID is deliberately never sent. The
+     * name is, and it is set and cleared in the same breath as the UUID
+     * everywhere either of them changes. Asking the UUID here instead is what
+     * made a rented stall advertise itself as still for rent to everybody
+     * standing in front of it: on a client that field is always null.
+     */
+    private boolean owned() {
+        return !this.ownerName.isEmpty();
     }
 
     /**
