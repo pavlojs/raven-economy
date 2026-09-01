@@ -24,11 +24,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.whiteravens.ravencoin.RavenCoin;
 
 /**
- * The three things a market stall can be asked to do.
+ * The four things a market stall can be asked to do.
  *
  * <p>Kept apart from {@link ShopSettingsPayload} because each of these needs a
  * different person: the operator puts a stall on the market, anybody may take
- * one, and only the renter opens the barrel. A settings packet that carried
+ * one, and only the renter opens the barrel or gives it back. A settings packet that carried
  * "for rent" as a fourth field would hand the renter the switch that ends their
  * own tenancy.
  *
@@ -41,7 +41,9 @@ public record ShopStallPayload(Action action) implements CustomPacketPayload {
         /** Open the container the stall sells out of. */
         RESTOCK,
         /** Operator only: put this server shop on the market, or take it off. */
-        TO_LET
+        TO_LET,
+        /** Renter only: hand the stall back, keeping neither the rent nor the goods. */
+        END
     }
 
     public static final Type<ShopStallPayload> TYPE =

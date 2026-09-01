@@ -78,13 +78,14 @@ public final class ModNetwork {
     }
 
     /**
-     * Rents a stall, restocks one, or puts one on the market.
+     * Rents a stall, restocks one, hands one back, or puts one on the market.
      *
-     * <p>Three different permissions on one packet, checked here rather than
+     * <p>Four different permissions on one packet, checked here rather than
      * trusted from the screen: renting is open to anyone standing at the
-     * counter, restocking is the renter's alone — it opens a container they are
-     * deliberately unable to open themselves — and putting a shop on the market
-     * is the operator's.
+     * counter, restocking and giving the stall back are the renter's alone —
+     * one opens a container they are deliberately unable to open themselves and
+     * the other destroys what is in it — and putting a shop on the market is
+     * the operator's.
      */
     private static void onShopStall(ShopStallPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) {
@@ -113,6 +114,15 @@ public final class ModNetwork {
                         player.sendSystemMessage(Component.translatable(ShopText.errorKey(opened))
                                 .withStyle(ChatFormatting.RED));
                     }
+                }
+            }
+            case END -> {
+                ShopResult ended = shop.endRental(player);
+                player.sendSystemMessage(ended == ShopResult.OK
+                        ? Component.translatable("screen.ravencoin.shop.rent.ended")
+                        : Component.translatable(ShopText.errorKey(ended)).withStyle(ChatFormatting.RED));
+                if (ended == ShopResult.OK) {
+                    player.closeContainer();
                 }
             }
             case TO_LET -> {

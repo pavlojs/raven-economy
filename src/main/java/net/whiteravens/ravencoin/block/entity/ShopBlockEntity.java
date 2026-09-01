@@ -383,6 +383,27 @@ public class ShopBlockEntity extends BlockEntity {
         this.setChangedAndSync();
     }
 
+    /**
+     * Hands a stall back, at the renter's own request.
+     *
+     * <p>Nothing is refunded and nothing is kept: the period already paid for is
+     * gone and so is whatever was left in the barrel. That is exactly what the
+     * button in front of them says before they press it, which is why this needs
+     * no further ceremony here.
+     *
+     * @return OK when the rental ended, or why it did not
+     */
+    public ShopResult endRental(ServerPlayer player) {
+        if (!this.rented()) {
+            return ShopResult.DISABLED;
+        }
+        if (this.owner == null || !player.getUUID().equals(this.owner)) {
+            return ShopResult.TAKEN;
+        }
+        this.evict();
+        return ShopResult.OK;
+    }
+
     /** Empties the container beside this shop, keeping nothing. */
     private void emptyOut() {
         IItemHandler barrel = this.barrel();

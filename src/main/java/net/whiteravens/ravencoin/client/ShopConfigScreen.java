@@ -17,12 +17,14 @@ package net.whiteravens.ravencoin.client;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -72,6 +74,20 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
     @Nullable
     private Button restock;
 
+    @Nullable
+    private Button end;
+
+    @Nullable
+    private Button confirmEnd;
+
+    @Nullable
+    private Button cancelEnd;
+
+    private Button apply;
+
+    /** Whether the panel is asking the renter to confirm giving the stall back. */
+    private boolean confirming;
+
     private boolean showLabel = true;
 
     public ShopConfigScreen(ShopConfigMenu menu, Inventory inventory, Component title) {
@@ -110,10 +126,10 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
                 .build();
         this.addRenderableWidget(this.label);
 
-        this.addRenderableWidget(Button.builder(
-                        Component.translatable("screen.ravencoin.shop.apply"), button -> this.apply())
+        this.apply = Button.builder(Component.translatable("screen.ravencoin.shop.apply"), button -> this.apply())
                 .bounds(this.leftPos + 8, this.topPos + 118, 160, 18)
-                .build());
+                .build();
+        this.addRenderableWidget(this.apply);
 
         // A market stall's goods live in a barrel on a claim its renter cannot
         // open. This button is how they reach it, and the only way they can.
@@ -139,6 +155,36 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
                     .build();
             this.addRenderableWidget(this.toLet);
         }
+
+        // The renter's way out. It shares the right-hand half of the button row
+        // with the operator's market switch, because the two are never wanted by
+        // the same person: an operator taking a stall off the market already has
+        // that button, and a renter has no use for it.
+        this.end = Button.builder(
+                        Component.translatable("screen.ravencoin.shop.rent.end"), button -> this.askToEnd())
+                .bounds(this.leftPos + 90, this.topPos + 96, 78, 18)
+                .build();
+        this.addRenderableWidget(this.end);
+
+        this.confirmEnd = Button.builder(
+                        Component.translatable("screen.ravencoin.shop.rent.end_yes"), button -> {
+                            PacketDistributor.sendToServer(new ShopStallPayload(ShopStallPayload.Action.END));
+                        })
+                .bounds(this.leftPos + 8, this.topPos + 96, 78, 18)
+                .build();
+        this.addRenderableWidget(this.confirmEnd);
+
+        this.cancelEnd = Button.builder(
+                        Component.translatable("screen.ravencoin.shop.rent.end_no"), button -> this.confirming = false)
+                .bounds(this.leftPos + 90, this.topPos + 96, 78, 18)
+                .build();
+        this.addRenderableWidget(this.cancelEnd);
+        this.confirming = false;
+    }
+
+    /** Turns the panel into the question, rather than putting a second window over it. */
+    private void askToEnd() {
+        this.confirming = true;
     }
 
     private EditBox numberField(int x, int y, int value, String key) {
@@ -167,11 +213,30 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         // owner who wants to sell their way out of a debt should be able to.
         // Only the goods are locked, and the button says which.
         if (this.restock != null && stall != null) {
-            this.restock.visible = !stall.bottomless();
+            this.restock.visible = !stall.bottomless() && !this.confirming;
             boolean locked = stall.closed() && !this.operator();
             this.restock.active = !locked;
             this.restock.setTooltip(
                     locked ? Tooltip.create(Component.translatable("screen.ravencoin.shop.restock.locked")) : null);
+        }
+        if (this.toLet != null) {
+            this.toLet.visible = !this.confirming;
+        }
+        if (this.end != null) {
+            // Only where the market switch is not already standing, which is the
+            // same as saying: shown to the renter, not to an operator.
+            this.end.visible = !this.confirming && stall != null && stall.rented() && this.toLet == null;
+        }
+        if (this.confirmEnd != null) {
+            this.confirmEnd.visible = this.confirming;
+        }
+        if (this.cancelEnd != null) {
+            this.cancelEnd.visible = this.confirming;
+        }
+        for (AbstractWidget widget : new AbstractWidget[] {
+            this.productUnits, this.priceUnits, this.rank, this.label, this.apply
+        }) {
+            widget.visible = !this.confirming;
         }
     }
 
@@ -233,6 +298,14 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         if (shop == null) {
             return;
         }
+        if (this.confirming) {
+            // The two sockets are painted into the panel texture, and the
+            // question is written across where they sit. A price tag behind a
+            // warning is not a price tag.
+            this.blankSlot(graphics, PRODUCT_SLOT_X);
+            this.blankSlot(graphics, PRICE_SLOT_X);
+            return;
+        }
         graphics.renderItem(shop.product(), this.leftPos + PRODUCT_SLOT_X + 1, this.topPos + SLOT_Y + 1);
         graphics.renderItem(shop.price(), this.leftPos + PRICE_SLOT_X + 1, this.topPos + SLOT_Y + 1);
     }
@@ -241,6 +314,10 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         super.renderLabels(graphics, mouseX, mouseY);
         Branding.draw(graphics, this.font, 168, this.inventoryLabelY);
+        if (this.confirming) {
+            this.renderConfirmation(graphics);
+            return;
+        }
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.goods"), 8, 20, 0x404040, false);
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.price"), 92, 20, 0x404040, false);
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.rank"), 8, 52, 0x404040, false);
@@ -294,6 +371,36 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         }
         this.pickTooltip(graphics, mouseX, mouseY, PRODUCT_SLOT_X, shop.product());
         this.pickTooltip(graphics, mouseX, mouseY, PRICE_SLOT_X, shop.price());
+    }
+
+    /**
+     * The question, on the panel the answer changes.
+     *
+     * <p>Written out rather than left to a yes/no box, because both halves of
+     * what is about to happen are irreversible and neither is guessable: the
+     * period already paid for is not refunded, and whatever is still in the
+     * barrel is destroyed rather than dropped.
+     */
+    private void renderConfirmation(GuiGraphics graphics) {
+        graphics.drawString(
+                this.font, Component.translatable("screen.ravencoin.shop.rent.end_ask"), 8, 20, 0x404040, false);
+        int y = 38;
+        for (String key : new String[] {
+            "screen.ravencoin.shop.rent.end_rent", "screen.ravencoin.shop.rent.end_stock"
+        }) {
+            for (FormattedCharSequence line :
+                    this.font.split(Component.translatable(key), 160)) {
+                graphics.drawString(this.font, line, 8, y, 0xAA0000, false);
+                y += 11;
+            }
+            y += 3;
+        }
+    }
+
+    private void blankSlot(GuiGraphics graphics, int x) {
+        graphics.fill(
+                this.leftPos + x, this.topPos + SLOT_Y, this.leftPos + x + SLOT_SIZE, this.topPos + SLOT_Y + SLOT_SIZE,
+                0xFFC6C6C6);
     }
 
     private void pickTooltip(GuiGraphics graphics, int mouseX, int mouseY, int slotX, ItemStack chosen) {
