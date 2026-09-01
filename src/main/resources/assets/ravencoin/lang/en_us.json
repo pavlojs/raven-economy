@@ -119,5 +119,18 @@
   "screen.ravencoin.atm.ago.minutes": "%s min",
   "screen.ravencoin.atm.ago.hours": "%s h",
   "screen.ravencoin.atm.ago.days": "%s d",
-  "commands.ravencoin.error.unknown_player": "Nobody by that name has an account here"
+  "commands.ravencoin.error.unknown_player": "Nobody by that name has an account here",
+  "screen.ravencoin.atm.menu": "Bank",
+  "screen.ravencoin.atm.bank": "Deposit and withdraw",
+  "screen.ravencoin.atm.transfer": "Transfer",
+  "screen.ravencoin.atm.history": "Statement",
+  "screen.ravencoin.atm.ranks": "Ranks",
+  "screen.ravencoin.atm.top": "Leaderboard",
+  "screen.ravencoin.atm.back": "Back",
+  "screen.ravencoin.atm.player": "Player",
+  "screen.ravencoin.atm.send": "Send",
+  "screen.ravencoin.atm.rank.buy": "Buy",
+  "screen.ravencoin.atm.rank.owned": "yours",
+  "screen.ravencoin.atm.rank.locked": "needs %s",
+  "screen.ravencoin.atm.rank.earned": "%2$s of %1$s"
 }

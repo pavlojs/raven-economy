@@ -20,7 +20,9 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.network.AtmListPayload;
 import net.whiteravens.ravencoin.registry.ModBlockEntities;
 import net.whiteravens.ravencoin.registry.ModMenus;
 
@@ -32,6 +34,20 @@ public final class RavenCoinClient {
         event.register(ModMenus.ATM.get(), AtmScreen::new);
         event.register(ModMenus.SHOP.get(), ShopScreen::new);
         event.register(ModMenus.SHOP_CONFIG.get(), ShopConfigScreen::new);
+    }
+
+    /**
+     * The one packet that travels towards a client.
+     *
+     * <p>Registered here rather than beside the other four in {@code ModNetwork},
+     * because the handler is a screen. A method reference to a screen written
+     * into common code is a class a dedicated server has to resolve, and every
+     * screen's superclass is client-only — this class is never loaded there at
+     * all, so the reference is safe inside it.
+     */
+    @SubscribeEvent
+    public static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToClient(AtmListPayload.TYPE, AtmListPayload.STREAM_CODEC, AtmScreen::accept);
     }
 
     @SubscribeEvent

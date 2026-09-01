@@ -15,20 +15,27 @@
  */
 package net.whiteravens.ravencoin.network;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.economy.Amounts;
+import net.whiteravens.ravencoin.economy.EconomyService;
+import net.whiteravens.ravencoin.economy.LedgerEntry;
 import net.whiteravens.ravencoin.economy.TransactionResult;
 import net.whiteravens.ravencoin.block.entity.ShopBlockEntity;
+import net.whiteravens.ravencoin.command.RankCommands;
 import net.whiteravens.ravencoin.menu.AtmMenu;
 import net.whiteravens.ravencoin.menu.ShopConfigMenu;
 import net.whiteravens.ravencoin.menu.ShopMenu;
+import net.whiteravens.ravencoin.rank.RankPurchase;
+import net.whiteravens.ravencoin.rank.RankService;
 import net.whiteravens.ravencoin.shop.ShopText;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,6 +59,89 @@ public final class ModNetwork {
         registrar.playToServer(ShopPickPayload.TYPE, ShopPickPayload.STREAM_CODEC, ModNetwork::onShopPick);
         registrar.playToServer(
                 ShopSettingsPayload.TYPE, ShopSettingsPayload.STREAM_CODEC, ModNetwork::onShopSettings);
+        registrar.playToServer(
+                AtmTransferPayload.TYPE, AtmTransferPayload.STREAM_CODEC, ModNetwork::onAtmTransfer);
+        registrar.playToServer(
+                AtmRequestPayload.TYPE, AtmRequestPayload.STREAM_CODEC, ModNetwork::onAtmRequest);
+        registrar.playToServer(
+                AtmRankBuyPayload.TYPE, AtmRankBuyPayload.STREAM_CODEC, ModNetwork::onAtmRankBuy);
+    }
+
+    /** Pays another player from the ATM's transfer page. */
+    private static void onAtmTransfer(AtmTransferPayload payload, IPayloadContext context) {
+        AtmMenu menu = atm(context);
+        if (menu == null || !(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        AtmMenu.Outcome outcome = menu.transfer(payload.player(), payload.amount());
+        if (!outcome.result().ok()) {
+            player.sendSystemMessage(
+                    Component.translatable(errorKey(outcome.result())).withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        String payee = menu.resolve(payload.player());
+        EconomyService.note(
+                player.server, player.getUUID(), LedgerEntry.Kind.PAY_OUT, outcome.amount(), payee);
+        EconomyService.byName(player.server, payee)
+                .ifPresent(account -> EconomyService.note(
+                        player.server,
+                        account.id(),
+                        LedgerEntry.Kind.PAY_IN,
+                        outcome.amount(),
+                        player.getGameProfile().getName()));
+        player.sendSystemMessage(Component.translatable(
+                "commands.ravencoin.pay.sent", Amounts.format(outcome.amount()), payee));
+        ServerPlayer online = player.server.getPlayerList().getPlayerByName(payee);
+        if (online != null) {
+            online.sendSystemMessage(Component.translatable(
+                    "commands.ravencoin.pay.received",
+                    player.getGameProfile().getName(),
+                    Amounts.format(outcome.amount())));
+        }
+    }
+
+    /** Fills in a page that only the server knows the contents of. */
+    private static void onAtmRequest(AtmRequestPayload payload, IPayloadContext context) {
+        if (atm(context) != null && context.player() instanceof ServerPlayer player) {
+            PacketDistributor.sendToPlayer(player, AtmPages.build(player, payload.page()));
+        }
+    }
+
+    /**
+     * Sells a rank from the ATM's rank page.
+     *
+     * <p>Sends the page back afterwards whatever happened. A purchase changes
+     * the row that was pressed — it stops naming a price and starts saying the
+     * rank is yours — and a refusal has to leave the row exactly as it was
+     * rather than as the client optimistically drew it.
+     */
+    private static void onAtmRankBuy(AtmRankBuyPayload payload, IPayloadContext context) {
+        if (atm(context) == null || !(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        RankPurchase result = RankService.buy(player, payload.rank());
+        if (result.ok()) {
+            RankService.find(payload.rank())
+                    .ifPresent(rank -> EconomyService.note(
+                            player.server, player.getUUID(), LedgerEntry.Kind.RANK, rank.price(), rank.name()));
+        } else {
+            player.sendSystemMessage(
+                    Component.translatable(RankCommands.errorKey(result)).withStyle(ChatFormatting.RED));
+        }
+        PacketDistributor.sendToPlayer(player, AtmPages.build(player, Page.RANKS));
+    }
+
+    /** {@return the ATM menu the sender has open, or null if they have not} */
+    @Nullable
+    private static AtmMenu atm(IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return null;
+        }
+        if (!(player.containerMenu instanceof AtmMenu menu) || !menu.stillValid(player)) {
+            return null;
+        }
+        return menu;
     }
 
     /** Runs one purchase for the player whose shop screen is open. */
@@ -66,7 +156,7 @@ public final class ModNetwork {
         if (shop == null) {
             return;
         }
-        player.sendSystemMessage(ShopText.outcome(shop, shop.buy(player, payload.lots())));
+        player.sendSystemMessage(ShopText.outcome(shop, shop.buy(player, payload.lots(), payload.fromAccount())));
     }
 
     /**
@@ -121,6 +211,16 @@ public final class ModNetwork {
             case WITHDRAW -> menu.withdraw(payload.amount());
         };
 
+        if (outcome.result().ok()) {
+            EconomyService.note(
+                    player.server,
+                    player.getUUID(),
+                    payload.action() == AtmActionPayload.Action.DEPOSIT
+                            ? LedgerEntry.Kind.DEPOSIT
+                            : LedgerEntry.Kind.WITHDRAW,
+                    outcome.amount(),
+                    "");
+        }
         player.sendSystemMessage(message(payload.action(), outcome));
     }
 
@@ -142,6 +242,7 @@ public final class ModNetwork {
             case DISABLED -> "commands.ravencoin.error.disabled";
             case SAME_ACCOUNT -> "commands.ravencoin.error.same_account";
             case NO_ROOM -> "commands.ravencoin.error.no_room";
+            case UNKNOWN_PLAYER -> "commands.ravencoin.error.unknown_player";
             case OK -> throw new IllegalArgumentException("OK is not an error");
         };
     }

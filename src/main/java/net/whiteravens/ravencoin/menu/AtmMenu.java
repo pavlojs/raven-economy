@@ -15,14 +15,14 @@
  */
 package net.whiteravens.ravencoin.menu;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.inventory.SimpleContainerData;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.whiteravens.ravencoin.economy.Account;
 import net.whiteravens.ravencoin.economy.EconomyService;
 import net.whiteravens.ravencoin.economy.PhysicalCoins;
 import net.whiteravens.ravencoin.economy.TransactionResult;
@@ -47,21 +47,18 @@ import net.whiteravens.ravencoin.registry.ModMenus;
  * reason, such as another player paying you while you stand at the machine.
  */
 public class AtmMenu extends AbstractContainerMenu {
-    /** Number of {@link ContainerData} slots used to carry a 64-bit balance. */
-    private static final int BALANCE_SLICES = 4;
-
     private final ContainerLevelAccess access;
     private final ContainerData balance;
     private final Player player;
 
     /** Client-side constructor: no world access, and a balance that only ever arrives from the server. */
     public AtmMenu(int containerId, Inventory inventory) {
-        this(containerId, inventory, ContainerLevelAccess.NULL, new SimpleContainerData(BALANCE_SLICES));
+        this(containerId, inventory, ContainerLevelAccess.NULL, BalanceData.empty());
     }
 
     /** Server-side constructor: reads the live balance out of the ledger every tick. */
     public AtmMenu(int containerId, Inventory inventory, ContainerLevelAccess access) {
-        this(containerId, inventory, access, liveBalance(inventory.player));
+        this(containerId, inventory, access, BalanceData.of(inventory.player));
     }
 
     private AtmMenu(int containerId, Inventory inventory, ContainerLevelAccess access, ContainerData balance) {
@@ -70,25 +67,12 @@ public class AtmMenu extends AbstractContainerMenu {
         this.balance = balance;
         this.player = inventory.player;
 
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                this.addSlot(new Slot(inventory, column + row * 9 + 9, 8 + column * 18, 104 + row * 18));
-            }
-        }
-        for (int column = 0; column < 9; column++) {
-            this.addSlot(new Slot(inventory, column, 8 + column * 18, 162));
-        }
-
         this.addDataSlots(balance);
     }
 
-    /** {@return the account balance, reassembled from the four synced slices} */
+    /** {@return the account balance the server last sent} */
     public long balance() {
-        long value = 0;
-        for (int slice = 0; slice < BALANCE_SLICES; slice++) {
-            value = (value << 16) | (this.balance.get(slice) & 0xFFFFL);
-        }
-        return value;
+        return BalanceData.read(this.balance);
     }
 
     /** {@return the value of the coins and coin blocks the player is carrying} */
@@ -143,6 +127,44 @@ public class AtmMenu extends AbstractContainerMenu {
     }
 
     /**
+     * Pays another player out of this account.
+     *
+     * <p>The name is resolved against the ledger rather than against Mojang:
+     * {@code GameProfileCache} would go and ask the session server about a name
+     * it has not seen, on this thread, for as long as that took. Everyone worth
+     * paying has an account here already.
+     */
+    public Outcome transfer(String name, long amount) {
+        if (amount <= 0) {
+            return new Outcome(TransactionResult.INVALID_AMOUNT, 0);
+        }
+        MinecraftServer server = this.player.getServer();
+        if (server == null) {
+            return new Outcome(TransactionResult.UNKNOWN_PLAYER, 0);
+        }
+        Account payee = EconomyService.byName(server, name).orElse(null);
+        if (payee == null) {
+            return new Outcome(TransactionResult.UNKNOWN_PLAYER, 0);
+        }
+        TransactionResult result = EconomyService.transfer(
+                server,
+                this.player.getUUID(),
+                this.player.getGameProfile().getName(),
+                payee.id(),
+                payee.name(),
+                amount);
+        return new Outcome(result, result.ok() ? amount : 0);
+    }
+
+    /** {@return the name the last transfer was actually paid to, for the message} */
+    public String resolve(String name) {
+        MinecraftServer server = this.player.getServer();
+        return server == null
+                ? name
+                : EconomyService.byName(server, name).map(Account::name).orElse(name);
+    }
+
+    /**
      * What one press of a button actually did.
      *
      * <p>The amount is what moved, not what was asked for: a deposit stops at
@@ -152,32 +174,17 @@ public class AtmMenu extends AbstractContainerMenu {
      */
     public record Outcome(TransactionResult result, long amount) {}
 
+    /**
+     * Nothing to move: this menu has no slots.
+     *
+     * <p>The ATM is a terminal, not a container. Coins go in and out of the
+     * player's inventory through {@link #deposit} and {@link #withdraw}, which
+     * count what actually moved — a slot the player could shove a stack into
+     * would be a second, silent way to bank money, with none of that accounting.
+     */
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        Slot slot = this.slots.get(index);
-        if (!slot.hasItem()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack stack = slot.getItem();
-        ItemStack original = stack.copy();
-
-        // Only the player's own inventory is on this screen, so a shift-click
-        // can do nothing more interesting than swap between pack and hotbar.
-        boolean fromMainInventory = index < 27;
-        if (fromMainInventory) {
-            if (!this.moveItemStackTo(stack, 27, 36, false)) {
-                return ItemStack.EMPTY;
-            }
-        } else if (!this.moveItemStackTo(stack, 0, 27, false)) {
-            return ItemStack.EMPTY;
-        }
-
-        if (stack.isEmpty()) {
-            slot.set(ItemStack.EMPTY);
-        } else {
-            slot.setChanged();
-        }
-        return original;
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -187,25 +194,5 @@ public class AtmMenu extends AbstractContainerMenu {
 
     private long rawBalance() {
         return EconomyService.balance(this.player.getServer(), this.player.getUUID());
-    }
-
-    private static ContainerData liveBalance(Player player) {
-        return new ContainerData() {
-            @Override
-            public int get(int index) {
-                long value = EconomyService.balance(player.getServer(), player.getUUID());
-                return (int) ((value >>> (16 * (BALANCE_SLICES - 1 - index))) & 0xFFFF);
-            }
-
-            @Override
-            public void set(int index, int value) {
-                // The ledger is the source of truth; a client cannot write to it.
-            }
-
-            @Override
-            public int getCount() {
-                return BALANCE_SLICES;
-            }
-        };
     }
 }

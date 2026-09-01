@@ -119,5 +119,18 @@
   "screen.ravencoin.atm.ago.minutes": "%s min",
   "screen.ravencoin.atm.ago.hours": "%s godz.",
   "screen.ravencoin.atm.ago.days": "%s dni",
-  "commands.ravencoin.error.unknown_player": "Nikt o tej nazwie nie ma tu konta"
+  "commands.ravencoin.error.unknown_player": "Nikt o tej nazwie nie ma tu konta",
+  "screen.ravencoin.atm.menu": "Bank",
+  "screen.ravencoin.atm.bank": "Wpłata i wypłata",
+  "screen.ravencoin.atm.transfer": "Przelew",
+  "screen.ravencoin.atm.history": "Historia",
+  "screen.ravencoin.atm.ranks": "Rangi",
+  "screen.ravencoin.atm.top": "Ranking",
+  "screen.ravencoin.atm.back": "Wróć",
+  "screen.ravencoin.atm.player": "Gracz",
+  "screen.ravencoin.atm.send": "Przelej",
+  "screen.ravencoin.atm.rank.buy": "Kup",
+  "screen.ravencoin.atm.rank.owned": "masz",
+  "screen.ravencoin.atm.rank.locked": "najpierw %s",
+  "screen.ravencoin.atm.rank.earned": "%2$s z %1$s"
 }
