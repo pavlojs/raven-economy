@@ -17,6 +17,7 @@ package net.whiteravens.ravencoin.economy;
 
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.whiteravens.ravencoin.registry.ModItems;
@@ -31,6 +32,25 @@ import net.whiteravens.ravencoin.registry.ModItems;
 public final class PhysicalCoins {
     /** A block of RavenCoin is worth this many coins. Nine, as with every vanilla ingot. */
     public static final int BLOCK_VALUE = 9;
+
+    /**
+     * Tells the client what its pockets now hold.
+     *
+     * <p>{@code Inventory.setChanged()} only marks the inventory dirty; nothing
+     * sends it. The player's own menu is what normally broadcasts inventory
+     * changes, and it is not the open menu while somebody is standing at an ATM
+     * — whose menu carries no inventory slots — so a deposit took the coins on
+     * the server and left them drawn on the client. Ninety RavenCoin that are
+     * still in the hotbar and no longer in the world is the worst-looking bug
+     * this mod can have, and it heals only when the player happens to open
+     * their inventory. A full container-0 update is applied by the client
+     * whatever screen is in front of it.
+     */
+    private static void resync(Player player) {
+        if (player instanceof ServerPlayer served) {
+            served.inventoryMenu.sendAllDataToRemote();
+        }
+    }
 
     /**
      * {@return the value of every coin and coin block in this container}
@@ -100,6 +120,7 @@ public final class PhysicalCoins {
         }
 
         inventory.setChanged();
+        resync(player);
         return amount - remaining;
     }
 
@@ -126,6 +147,7 @@ public final class PhysicalCoins {
             delivered += placed;
             if (placed < (long) batch * BLOCK_VALUE) {
                 player.getInventory().setChanged();
+                resync(player);
                 return delivered;
             }
             blocks -= batch;
@@ -136,6 +158,7 @@ public final class PhysicalCoins {
         }
 
         player.getInventory().setChanged();
+        resync(player);
         return delivered;
     }
 
