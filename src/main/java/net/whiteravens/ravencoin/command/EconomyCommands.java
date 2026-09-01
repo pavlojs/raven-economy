@@ -40,6 +40,7 @@ import net.whiteravens.ravencoin.economy.Account;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.EconomyService;
 import net.whiteravens.ravencoin.economy.Holding;
+import net.whiteravens.ravencoin.economy.LedgerEntry;
 import net.whiteravens.ravencoin.economy.MoneyCensus;
 import net.whiteravens.ravencoin.economy.TransactionResult;
 
@@ -134,6 +135,20 @@ public final class EconomyCommands {
                                             payee.getId(),
                                             payee.getName(),
                                             amount);
+                                    if (result.ok()) {
+                                        EconomyService.note(
+                                                server,
+                                                payer.getUUID(),
+                                                LedgerEntry.Kind.PAY_OUT,
+                                                amount,
+                                                payee.getName());
+                                        EconomyService.note(
+                                                server,
+                                                payee.getId(),
+                                                LedgerEntry.Kind.PAY_IN,
+                                                amount,
+                                                payer.getGameProfile().getName());
+                                    }
                                     if (!result.ok()) {
                                         return fail(ctx, result);
                                     }
@@ -309,6 +324,9 @@ public final class EconomyCommands {
                                         return fail(ctx, result);
                                     }
 
+                                    EconomyService.note(
+                                            server, target.getId(), LedgerEntry.Kind.ADJUST, amount, name);
+
                                     long balance = EconomyService.balance(server, target.getId());
                                     ctx.getSource()
                                             .sendSuccess(
@@ -336,6 +354,7 @@ public final class EconomyCommands {
             case DISABLED -> "commands.ravencoin.error.disabled";
             case SAME_ACCOUNT -> "commands.ravencoin.error.same_account";
             case NO_ROOM -> "commands.ravencoin.error.no_room";
+            case UNKNOWN_PLAYER -> "commands.ravencoin.error.unknown_player";
             case OK -> throw new IllegalArgumentException("OK is not an error");
         };
     }

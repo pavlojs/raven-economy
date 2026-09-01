@@ -27,6 +27,8 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.whiteravens.ravencoin.economy.Amounts;
+import net.whiteravens.ravencoin.economy.EconomyService;
+import net.whiteravens.ravencoin.economy.LedgerEntry;
 import net.whiteravens.ravencoin.rank.Playtime;
 import net.whiteravens.ravencoin.rank.Rank;
 import net.whiteravens.ravencoin.rank.RankPurchase;
@@ -161,6 +163,8 @@ public final class RankCommands {
         }
 
         Rank rank = RankService.find(id).orElseThrow();
+        EconomyService.note(
+                player.server, player.getUUID(), LedgerEntry.Kind.RANK, rank.price(), rank.name());
         context.getSource()
                 .sendSuccess(
                         () -> Component.translatable(
@@ -240,7 +244,8 @@ public final class RankCommands {
         return count;
     }
 
-    private static String errorKey(RankPurchase result) {
+    /** Shared with the ATM's rank page, which refuses a purchase for the same reasons. */
+    public static String errorKey(RankPurchase result) {
         return switch (result) {
             case DISABLED -> "commands.ravencoin.rank.error.disabled";
             case NO_PERMISSIONS -> "commands.ravencoin.rank.error.no_permissions";

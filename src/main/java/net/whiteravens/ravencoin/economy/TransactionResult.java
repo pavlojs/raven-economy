@@ -37,7 +37,9 @@ public enum TransactionResult {
     /** Someone tried to pay themselves. */
     SAME_ACCOUNT,
     /** There was nowhere to put the coins the account was willing to pay out. */
-    NO_ROOM;
+    NO_ROOM,
+    /** Nobody by that name has ever logged in, so there is no account to pay. */
+    UNKNOWN_PLAYER;
 
     public boolean ok() {
         return this == OK;

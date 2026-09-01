@@ -16,6 +16,7 @@
 package net.whiteravens.ravencoin.economy;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -123,6 +124,29 @@ public final class EconomyService {
         EconomyAccounts accounts = EconomyAccounts.of(server);
         accounts.store(accounts.open(id, name).withBalance(amount));
         return TransactionResult.OK;
+    }
+
+    /**
+     * Writes one line onto a player's statement.
+     *
+     * <p>Called by whoever moved the money, not by {@link #deposit} and
+     * {@link #withdraw} themselves, because those two cannot tell why they were
+     * called: banking coins, being paid by the server shop and an operator's
+     * correction all arrive at {@code deposit} looking identical, and a
+     * statement that called all three "deposit" would be worse than none.
+     */
+    public static void note(MinecraftServer server, UUID id, LedgerEntry.Kind kind, long amount, String other) {
+        EconomyAccounts.of(server).note(id, new LedgerEntry(System.currentTimeMillis(), kind, amount, other));
+    }
+
+    /** {@return this player's statement, newest first} */
+    public static List<LedgerEntry> history(MinecraftServer server, UUID id) {
+        return EconomyAccounts.of(server).history(id);
+    }
+
+    /** {@return the account that goes with this name, or empty if nobody by it has played here} */
+    public static Optional<Account> byName(MinecraftServer server, String name) {
+        return EconomyAccounts.of(server).findByName(name);
     }
 
     /** {@return the richest accounts, highest first} */

@@ -30,6 +30,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.whiteravens.ravencoin.config.RavenCoinConfig;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Every account on the server, saved next to the world.
@@ -53,7 +54,20 @@ public final class EconomyAccounts extends SavedData {
     public static final SavedData.Factory<EconomyAccounts> FACTORY =
             new SavedData.Factory<>(EconomyAccounts::new, EconomyAccounts::load);
 
+    /**
+     * How much of an account's statement is kept.
+     *
+     * <p>Twenty is what the ATM shows, over two pages. Keeping more would mean
+     * keeping it for every player who ever joined, in the one file the whole
+     * economy is saved to, to answer a question nobody asks past the last
+     * screenful.
+     */
+    public static final int HISTORY_LENGTH = 20;
+
     private final Map<UUID, Account> accounts = new HashMap<>();
+
+    /** Newest first, capped at {@link #HISTORY_LENGTH}, and never held for an account that does not exist. */
+    private final Map<UUID, List<LedgerEntry>> history = new HashMap<>();
 
     /** {@return the accounts for this server, loading or creating them on first use} */
     public static EconomyAccounts of(MinecraftServer server) {
@@ -89,6 +103,21 @@ public final class EconomyAccounts extends SavedData {
         return existing;
     }
 
+    /** Writes one line onto an account's statement, dropping the oldest if it is full. */
+    void note(UUID id, LedgerEntry entry) {
+        List<LedgerEntry> lines = this.history.computeIfAbsent(id, key -> new ArrayList<>(HISTORY_LENGTH));
+        lines.add(0, entry);
+        while (lines.size() > HISTORY_LENGTH) {
+            lines.remove(lines.size() - 1);
+        }
+        this.setDirty();
+    }
+
+    /** {@return this account's statement, newest first} */
+    public List<LedgerEntry> history(UUID id) {
+        return List.copyOf(this.history.getOrDefault(id, List.of()));
+    }
+
     /** Overwrites a balance. Callers are responsible for validating the number. */
     void store(Account account) {
         this.accounts.put(account.id(), account);
@@ -103,6 +132,21 @@ public final class EconomyAccounts extends SavedData {
                         .thenComparing(Account::name))
                 .limit(limit)
                 .toList();
+    }
+
+    /**
+     * {@return the account belonging to this name, ignoring case}
+     *
+     * <p>Resolves a typed name without touching Mojang's session server, which
+     * {@code GameProfileCache} would do for a name it has not seen — on the
+     * server thread, for as long as that takes. Anyone worth paying has logged
+     * in here at least once, so the ledger already knows them; anyone it does
+     * not know has no account to pay into.
+     */
+    public Optional<Account> findByName(String name) {
+        return this.accounts.values().stream()
+                .filter(account -> account.name().equalsIgnoreCase(name))
+                .findFirst();
     }
 
     /** {@return every account, in no particular order} */
@@ -125,6 +169,7 @@ public final class EconomyAccounts extends SavedData {
             }
             UUID id = entry.getUUID("Id");
             data.accounts.put(id, new Account(id, entry.getString("Name"), entry.getLong("Balance")));
+            data.history.put(id, readHistory(entry.getList("History", Tag.TAG_COMPOUND)));
         }
         return data;
     }
@@ -137,10 +182,55 @@ public final class EconomyAccounts extends SavedData {
             entry.putUUID("Id", account.id());
             entry.putString("Name", account.name());
             entry.putLong("Balance", account.balance());
+            entry.put("History", writeHistory(this.history.getOrDefault(account.id(), List.of())));
             list.add(entry);
         }
         tag.put("Accounts", list);
         return tag;
+    }
+
+    /**
+     * Reads a statement back, dropping any line it cannot make sense of.
+     *
+     * <p>A kind is stored by name, so a line written by a later version of this
+     * mod arrives here as a word this one has never heard of. Skipping it loses
+     * one line of history; refusing the file loses everybody's money.
+     */
+    private static List<LedgerEntry> readHistory(ListTag lines) {
+        List<LedgerEntry> history = new ArrayList<>(lines.size());
+        for (int i = 0; i < lines.size(); i++) {
+            CompoundTag line = lines.getCompound(i);
+            LedgerEntry.Kind kind = kind(line.getString("Kind"));
+            if (kind == null) {
+                continue;
+            }
+            history.add(new LedgerEntry(
+                    line.getLong("When"), kind, line.getLong("Amount"), line.getString("Other")));
+        }
+        return history;
+    }
+
+    private static ListTag writeHistory(List<LedgerEntry> history) {
+        ListTag lines = new ListTag();
+        for (LedgerEntry entry : history) {
+            CompoundTag line = new CompoundTag();
+            line.putLong("When", entry.when());
+            line.putString("Kind", entry.kind().name());
+            line.putLong("Amount", entry.amount());
+            line.putString("Other", entry.other());
+            lines.add(line);
+        }
+        return lines;
+    }
+
+    @Nullable
+    private static LedgerEntry.Kind kind(String name) {
+        for (LedgerEntry.Kind kind : LedgerEntry.Kind.values()) {
+            if (kind.name().equals(name)) {
+                return kind;
+            }
+        }
+        return null;
     }
 
     private EconomyAccounts() {}
