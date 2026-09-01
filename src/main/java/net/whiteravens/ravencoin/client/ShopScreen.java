@@ -19,7 +19,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -49,6 +51,14 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
 
     /** One order, in lots. Four digits is more than any shop's chest can supply anyway. */
     private static final int MAX_DIGITS = 4;
+
+    /** Left edge of the four lines of the offer, clear of the product's icon. */
+    private static final int TEXT_LEFT = 34;
+
+    /** How much room those lines have before they run off the panel. */
+    private static final int TEXT_WIDTH = 176 - TEXT_LEFT - 8;
+
+    private static final FormattedText ELLIPSIS = FormattedText.of("…");
 
     private EditBox lots;
     private Button buy;
@@ -129,29 +139,46 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop == null || !shop.configured()) {
-            graphics.drawString(
-                    this.font, Component.translatable("screen.ravencoin.shop.error.not_set_up"), 34, 24, 0x404040, false);
+            this.line(graphics, Component.translatable("screen.ravencoin.shop.error.not_set_up"), 24, 0x404040, false);
             return;
         }
 
-        graphics.drawString(this.font, ShopText.amount(shop.product(), shop.productUnits()), 34, 24, 0xFFFFFF, true);
-        graphics.drawString(
-                this.font,
+        this.line(graphics, ShopText.amount(shop.product(), shop.productUnits()), 24, 0xFFFFFF, true);
+        this.line(
+                graphics,
                 Component.translatable("screen.ravencoin.shop.for", ShopText.amount(shop.price(), shop.priceUnits())),
-                34,
                 36,
                 0xFFD700,
                 true);
-        graphics.drawString(this.font, ShopText.stock(shop), 34, 48, 0xC0C0C0, true);
+        this.line(graphics, ShopText.stock(shop), 48, 0xC0C0C0, true);
 
         long held = ShopStock.count(ShopStock.pockets(this.minecraft.player), shop.price());
-        graphics.drawString(
-                this.font,
+        this.line(
+                graphics,
                 Component.translatable("screen.ravencoin.shop.you_have", ShopText.amount(shop.price(), (int) Math.min(held, Integer.MAX_VALUE))),
-                34,
                 60,
                 0xC0C0C0,
                 false);
+    }
+
+    /**
+     * Draws one line of the offer, cut short rather than off the edge.
+     *
+     * <p>A price is an arbitrary item, and the server shop's buy-back prices
+     * goods that are named things like "Supermassive QIO Drive" — measured at
+     * 150 pixels against the 134 this panel has. {@code drawString} neither
+     * wraps nor clips, so without this the name runs out over the player's own
+     * inventory and off the screen.
+     */
+    private void line(GuiGraphics graphics, Component text, int y, int color, boolean shadow) {
+        if (this.font.width(text) <= TEXT_WIDTH) {
+            graphics.drawString(this.font, text, TEXT_LEFT, y, color, shadow);
+            return;
+        }
+        FormattedText clipped = FormattedText.composite(
+                this.font.substrByWidth(text, TEXT_WIDTH - this.font.width(ELLIPSIS)), ELLIPSIS);
+        graphics.drawString(
+                this.font, Language.getInstance().getVisualOrder(clipped), TEXT_LEFT, y, color, shadow);
     }
 
     @Override
