@@ -77,6 +77,27 @@ public final class ShopText {
                 : Component.translatable("screen.ravencoin.shop.rent.period.many", Amounts.format(days));
     }
 
+    /**
+     * {@return what the sign over an empty stall says}
+     *
+     * <p>A stall on the market has no goods and no price, so it fails the test
+     * {@link #label} is written for and used to be drawn as nothing at all — a
+     * market of them looked like a row of blank blocks. What a passer-by needs
+     * here is the offer, and whether it can be taken today.
+     */
+    public static List<Component> stallLabel(ShopBlockEntity shop) {
+        List<Component> lines = new ArrayList<>(2);
+        lines.add(Component.translatable("screen.ravencoin.shop.rent.offer").withStyle(ChatFormatting.WHITE));
+        lines.add(shop.stallReady()
+                ? Component.translatable(
+                                "screen.ravencoin.shop.rent.terms",
+                                Amounts.format(shop.quotedRent()),
+                                period(shop.quotedDays()))
+                        .withStyle(ChatFormatting.GOLD)
+                : Component.translatable("screen.ravencoin.shop.rent.not_ready").withStyle(ChatFormatting.RED));
+        return lines;
+    }
+
     /** {@return what the sign over a shop says, top line first} */
     public static List<Component> label(ShopBlockEntity shop) {
         List<Component> lines = new ArrayList<>(3);

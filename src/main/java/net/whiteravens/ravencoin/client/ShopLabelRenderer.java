@@ -69,7 +69,18 @@ public class ShopLabelRenderer implements BlockEntityRenderer<ShopBlockEntity> {
             MultiBufferSource buffers,
             int packedLight,
             int packedOverlay) {
-        if (!shop.showLabel() || !shop.configured()) {
+        if (!shop.showLabel()) {
+            return;
+        }
+        // A stall on the market has nothing to hang over the counter and nothing
+        // priced, so it is drawn as an advertisement instead of a shop sign.
+        // Without this branch it is drawn as nothing, and a market of empty
+        // stalls is indistinguishable from a row of blocks.
+        if (shop.toLet()) {
+            this.renderLines(ShopText.stallLabel(shop), pose, buffers);
+            return;
+        }
+        if (!shop.configured()) {
             return;
         }
 
