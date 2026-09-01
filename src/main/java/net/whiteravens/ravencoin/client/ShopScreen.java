@@ -194,6 +194,7 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         super.renderLabels(graphics, mouseX, mouseY);
+        Branding.draw(graphics, this.font, 168, this.inventoryLabelY);
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop == null || !shop.configured()) {

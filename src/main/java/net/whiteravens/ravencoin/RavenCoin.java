@@ -56,5 +56,6 @@ public class RavenCoin {
         ModMenus.MENUS.register(modBus);
 
         container.registerConfig(ModConfig.Type.COMMON, RavenCoinConfig.SPEC);
+        container.registerConfig(ModConfig.Type.CLIENT, RavenCoinConfig.CLIENT_SPEC);
     }
 }

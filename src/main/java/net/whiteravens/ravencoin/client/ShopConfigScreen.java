@@ -174,6 +174,7 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         super.renderLabels(graphics, mouseX, mouseY);
+        Branding.draw(graphics, this.font, 168, this.inventoryLabelY);
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.goods"), 8, 20, 0x404040, false);
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.price"), 92, 20, 0x404040, false);
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.rank"), 8, 52, 0x404040, false);

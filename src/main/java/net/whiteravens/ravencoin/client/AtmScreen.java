@@ -333,6 +333,7 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
             default -> { }
         }
 
+        Branding.draw(graphics, this.font, DETAIL_RIGHT + 2, this.imageHeight - 20);
     }
 
     /**

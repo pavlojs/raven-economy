@@ -33,10 +33,44 @@ public final class RavenCoinConfig {
     public static final ModConfigSpec SPEC;
     public static final Common COMMON;
 
+    public static final ModConfigSpec CLIENT_SPEC;
+    public static final Client CLIENT;
+
     static {
-        Pair<Common, ModConfigSpec> pair = new ModConfigSpec.Builder().configure(Common::new);
-        COMMON = pair.getLeft();
-        SPEC = pair.getRight();
+        Pair<Common, ModConfigSpec> common = new ModConfigSpec.Builder().configure(Common::new);
+        COMMON = common.getLeft();
+        SPEC = common.getRight();
+
+        Pair<Client, ModConfigSpec> client = new ModConfigSpec.Builder().configure(Client::new);
+        CLIENT = client.getLeft();
+        CLIENT_SPEC = client.getRight();
+    }
+
+    /**
+     * Settings that only decide what this mod's own screens draw.
+     *
+     * <p>CLIENT rather than COMMON because nothing here reaches the ledger: a
+     * player who turns the branding off changes their own screen and nobody
+     * else's, and nothing has to be synced for that to be true. A modpack
+     * still sets the default for everyone by shipping the file.
+     *
+     * <p>Never read this on a dedicated server. A client config is not loaded
+     * there, and asking for a value out of one that was never loaded throws.
+     */
+    public static final class Client {
+        /** Whether the screens carry the White Ravens Financial Systems mark. */
+        public final ModConfigSpec.BooleanValue showBranding;
+
+        private Client(ModConfigSpec.Builder builder) {
+            builder.comment("What this mod's own screens draw").push("display");
+            showBranding = builder
+                    .comment(
+                            "Whether the ATM and the shop screens carry the small",
+                            "'White Ravens Financial Systems' mark in the corner.",
+                            "Cosmetic, and yours alone — this changes nobody else's screen.")
+                    .define("showBranding", true);
+            builder.pop();
+        }
     }
 
     public static final class Common {
