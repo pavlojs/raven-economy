@@ -100,10 +100,12 @@ public final class ModNetwork {
                 }
             }
             case RESTOCK -> {
-                if (shop.mayConfigure(player) && !shop.openStock(player)) {
-                    player.sendSystemMessage(
-                            Component.translatable("screen.ravencoin.shop.error.no_container")
-                                    .withStyle(ChatFormatting.RED));
+                if (shop.mayConfigure(player)) {
+                    ShopResult opened = shop.openStock(player);
+                    if (opened != ShopResult.OK) {
+                        player.sendSystemMessage(Component.translatable(ShopText.errorKey(opened))
+                                .withStyle(ChatFormatting.RED));
+                    }
                 }
             }
             case TO_LET -> {

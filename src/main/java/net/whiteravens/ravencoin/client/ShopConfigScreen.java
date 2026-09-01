@@ -18,6 +18,7 @@ package net.whiteravens.ravencoin.client;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -67,6 +68,9 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
     @Nullable
     private Button toLet;
 
+    @Nullable
+    private Button restock;
+
     private boolean showLabel = true;
 
     public ShopConfigScreen(ShopConfigMenu menu, Inventory inventory, Component title) {
@@ -114,16 +118,15 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         // open. This button is how they reach it, and the only way they can.
         ShopBlockEntity stall = this.menu.shop();
         if (stall != null && !stall.bottomless()) {
-            this.addRenderableWidget(Button.builder(
+            this.restock = Button.builder(
                             Component.translatable("screen.ravencoin.shop.restock"),
                             button -> PacketDistributor.sendToServer(
                                     new ShopStallPayload(ShopStallPayload.Action.RESTOCK)))
                     .bounds(this.leftPos + 8, this.topPos + 96, 78, 18)
-                    .build());
+                    .build();
+            this.addRenderableWidget(this.restock);
         }
-        if (stall != null && stall.admin() && this.minecraft != null
-                && this.minecraft.player != null
-                && this.minecraft.player.hasPermissions(2)) {
+        if (stall != null && stall.admin() && this.operator()) {
             this.toLet = Button.builder(this.toLetText(stall), button -> {
                         PacketDistributor.sendToServer(new ShopStallPayload(ShopStallPayload.Action.TO_LET));
                     })
@@ -155,6 +158,19 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         if (this.toLet != null && stall != null) {
             this.toLet.setMessage(this.toLetText(stall));
         }
+        // Repricing and reflagging stay open while a stall is in arrears — an
+        // owner who wants to sell their way out of a debt should be able to.
+        // Only the goods are locked, and the button says which.
+        if (this.restock != null && stall != null) {
+            boolean locked = stall.closed() && !this.operator();
+            this.restock.active = !locked;
+            this.restock.setTooltip(
+                    locked ? Tooltip.create(Component.translatable("screen.ravencoin.shop.restock.locked")) : null);
+        }
+    }
+
+    private boolean operator() {
+        return this.minecraft != null && this.minecraft.player != null && this.minecraft.player.hasPermissions(2);
     }
 
     private Component labelText() {

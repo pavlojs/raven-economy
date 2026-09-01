@@ -44,5 +44,7 @@ public enum ShopResult {
     /** Somebody else already rents this stall. */
     TAKEN,
     /** The rent has not been paid, so the stall is shut. */
-    CLOSED
+    CLOSED,
+    /** The stall still holds the last renter's goods and is not on the market yet. */
+    NOT_EMPTY
 }

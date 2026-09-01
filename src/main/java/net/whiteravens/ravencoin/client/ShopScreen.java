@@ -182,6 +182,10 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         boolean toLet = shop != null && shop.toLet();
         if (this.rent != null) {
             this.rent.visible = toLet;
+            // A stall still holding the last renter's goods is advertised but
+            // not available, and a button that refuses every press is worse
+            // than one that is plainly not ready.
+            this.rent.active = shop != null && shop.stallReady();
         }
         if (this.lots != null) {
             this.lots.visible = !toLet;
@@ -251,15 +255,13 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
                     160,
                     COIN_INK,
                     false);
-            Labels.draw(
-                    graphics,
-                    this.font,
-                    Component.translatable("screen.ravencoin.shop.rent.note"),
-                    8,
-                    52,
-                    160,
-                    0x555555,
-                    false);
+            // Two lines, because one that says all of this is 205px wide on a
+            // 160px panel and arrives with its last three words cut off.
+            boolean ready = shop.stallReady();
+            String prefix = ready ? "screen.ravencoin.shop.rent.note" : "screen.ravencoin.shop.rent.not_ready";
+            int ink = ready ? 0x555555 : 0xAA0000;
+            Labels.draw(graphics, this.font, Component.translatable(prefix), 8, 52, 160, ink, false);
+            Labels.draw(graphics, this.font, Component.translatable(prefix + "2"), 8, 63, 160, ink, false);
             return;
         }
         if (shop == null || !shop.configured()) {

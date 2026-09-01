@@ -116,6 +116,9 @@ public class ShopBlockEntity extends BlockEntity {
     /** When the rent first could not be taken, or zero while it is paid up. */
     private long arrearsSince;
 
+    /** Whether this stall is on the market with an empty container behind it. */
+    private boolean stallReady;
+
     @Nullable
     private Direction stockSide;
 
@@ -148,9 +151,23 @@ public class ShopBlockEntity extends BlockEntity {
         return this.rentable && this.admin() && this.owner == null;
     }
 
-    /** {@return whether the rent went unpaid, which shuts the stall without emptying it} */
+    /**
+     * {@return whether the rent went unpaid, which shuts the stall without emptying it}
+     *
+     * <p>Shut means shut both ways: the counter stops selling and the renter
+     * stops being able to take the goods back out. That second half is the only
+     * leverage a rent has here — an operator is not going to break a stall open
+     * to repossess it — and it is what makes rent a bill rather than a
+     * suggestion. Nothing is confiscated and nothing is moved: pay, and the
+     * stock is exactly where it was left.
+     */
     public boolean closed() {
         return this.rented() && this.arrearsSince != 0;
+    }
+
+    /** {@return whether a stall is on the market and its container is empty} */
+    public boolean stallReady() {
+        return this.stallReady;
     }
 
     public boolean rentable() {
@@ -256,11 +273,18 @@ public class ShopBlockEntity extends BlockEntity {
         if (this.owner != null) {
             return ShopResult.TAKEN;
         }
-        if (this.stockSide == null && this.container() == null) {
+        if (this.barrel() == null) {
             // Enforced here rather than at the counter: a stall with nowhere to
             // put the goods cannot be stocked, and finding that out after paying
             // a week's rent is the wrong order to find it out in.
             return ShopResult.NO_CONTAINER;
+        }
+        if (!this.emptyBarrel()) {
+            // Whatever is in there is the last renter's, left behind by an
+            // eviction. Handing it to whoever rents next would turn eviction
+            // into a way of taking somebody's stock, so the stall stays off the
+            // market until an operator has emptied it and decided where it goes.
+            return ShopResult.NOT_EMPTY;
         }
         long price = rentPrice();
         if (price > 0) {
@@ -353,18 +377,26 @@ public class ShopBlockEntity extends BlockEntity {
      * renter cannot open, on purpose, so that nobody but the renter reaches the
      * goods. The shop opens it for them instead.
      *
-     * @return whether there was a container with a screen of its own to open
+     * @return OK when it opened, or why it did not
      */
-    public boolean openStock(ServerPlayer player) {
-        if (this.level == null || this.stockSide == null) {
-            return false;
+    public ShopResult openStock(ServerPlayer player) {
+        // The arrears lock. An operator is exempt: emptying a stall after an
+        // eviction is theirs to do, and it is the only route the goods have back
+        // to the person who left them.
+        if (this.closed() && !player.hasPermissions(2)) {
+            return ShopResult.CLOSED;
         }
-        if (this.level.getBlockEntity(this.worldPosition.relative(this.stockSide))
-                instanceof MenuProvider container) {
+        if (this.level == null || this.barrel() == null) {
+            return ShopResult.NO_CONTAINER;
+        }
+        Direction side = this.stockSide;
+        if (side != null
+                && this.level.getBlockEntity(this.worldPosition.relative(side))
+                        instanceof MenuProvider container) {
             player.openMenu(container);
-            return true;
+            return ShopResult.OK;
         }
-        return false;
+        return ShopResult.NO_CONTAINER;
     }
 
     /** {@return how many single units of the goods are in the container} */
@@ -661,10 +693,23 @@ public class ShopBlockEntity extends BlockEntity {
                 .orElse(true);
     }
 
-    /** {@return the container this shop works out of, or null for a server shop or a lonely one} */
+    /** {@return the container this shop trades out of, or null for a server shop or a lonely one} */
     @Nullable
     private IItemHandler container() {
-        if (this.bottomless() || this.level == null) {
+        return this.bottomless() ? null : this.barrel();
+    }
+
+    /**
+     * {@return the container standing beside this shop, whoever it belongs to}
+     *
+     * <p>Separate from {@link #container()} because a stall on the market is
+     * {@link #bottomless()} until somebody rents it, and so has no till — but it
+     * still has a barrel, which is exactly what has to be found before it can be
+     * let and exactly what has to be empty before it can be let again.
+     */
+    @Nullable
+    private IItemHandler barrel() {
+        if (this.level == null) {
             return null;
         }
         if (this.stockSide != null) {
@@ -682,6 +727,20 @@ public class ShopBlockEntity extends BlockEntity {
         }
         this.stockSide = null;
         return null;
+    }
+
+    /** {@return whether the container beside this shop holds nothing, false when there is none} */
+    private boolean emptyBarrel() {
+        IItemHandler barrel = this.barrel();
+        if (barrel == null) {
+            return false;
+        }
+        for (int slot = 0; slot < barrel.getSlots(); slot++) {
+            if (!barrel.getStackInSlot(slot).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nullable
@@ -705,6 +764,11 @@ public class ShopBlockEntity extends BlockEntity {
     private void refresh() {
         int before = this.trades;
         Direction sideBefore = this.stockSide;
+        boolean readyBefore = this.stallReady;
+
+        // Only a stall on the market pays for this: it is a walk over the
+        // neighbour's slots, and nothing else asks the question.
+        this.stallReady = this.toLet() && this.emptyBarrel();
 
         if (this.bottomless()) {
             this.trades = UNLIMITED;
@@ -717,7 +781,7 @@ public class ShopBlockEntity extends BlockEntity {
             this.trades = (int) Math.min(available, MAX_TRADES_SHOWN);
         }
 
-        if (before != this.trades || sideBefore != this.stockSide) {
+        if (before != this.trades || sideBefore != this.stockSide || readyBefore != this.stallReady) {
             this.setChangedAndSync();
         }
     }
@@ -756,6 +820,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.quotedDays = tag.getInt("RentDays");
         this.rentPaidUntil = tag.getLong("RentPaidUntil");
         this.arrearsSince = tag.getLong("ArrearsSince");
+        this.stallReady = tag.getBoolean("StallReady");
         // from3DDataValue rather than values()[…]: this byte comes off disk, and a
         // corrupt or hand-edited one indexed straight into the array throws while
         // the block entity is loading, which fails the whole chunk. The 3D data
@@ -784,6 +849,7 @@ public class ShopBlockEntity extends BlockEntity {
         tag.putInt("RentDays", RavenCoinConfig.COMMON.rentDays.get());
         tag.putLong("RentPaidUntil", this.rentPaidUntil);
         tag.putLong("ArrearsSince", this.arrearsSince);
+        tag.putBoolean("StallReady", this.stallReady);
         if (this.stockSide != null) {
             tag.putByte("StockSide", (byte) this.stockSide.get3DDataValue());
         }
