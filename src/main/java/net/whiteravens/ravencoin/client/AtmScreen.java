@@ -23,6 +23,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -91,6 +92,12 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
 
     /** Where an outcome from the server is written, above the footer. */
     private static final int NOTICE_Y = 162;
+
+    /** How many lines a notice may wrap onto. Two is what fits above the footer. */
+    private static final int NOTICE_LINES = 2;
+
+    /** The gap between wrapped notice lines: the font's own height plus a pixel. */
+    private static final int NOTICE_PITCH = 10;
 
     /** Where a row's right-hand half ends, and where it ends when a button follows it. */
     private static final int DETAIL_RIGHT = 166;
@@ -401,15 +408,18 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
         }
 
         if (this.notice != null) {
-            Labels.draw(
-                    graphics,
-                    this.font,
-                    this.notice,
-                    MARGIN,
-                    NOTICE_Y,
-                    FULL_WIDTH,
-                    this.noticeIsError ? 0xAA0000 : 0x006622,
-                    false);
+            // Wrapped, not clipped. These are sentences borrowed from the chat
+            // lines the commands print, and measured against this panel six of
+            // the seven the transfer page can produce are wider than 160px:
+            // "Nikt o tej nazwie nie ma tu kont…" is not an answer. The last
+            // line sits on NOTICE_Y so a one-line notice has not moved.
+            List<FormattedCharSequence> lines = this.font.split(this.notice, FULL_WIDTH);
+            int shown = Math.min(lines.size(), NOTICE_LINES);
+            int ink = this.noticeIsError ? 0xAA0000 : 0x006622;
+            for (int i = 0; i < shown; i++) {
+                graphics.drawString(
+                        this.font, lines.get(i), MARGIN, NOTICE_Y - (shown - 1 - i) * NOTICE_PITCH, ink, false);
+            }
         }
 
         Branding.draw(graphics, this.font, DETAIL_RIGHT + 2, this.imageHeight - 20);
