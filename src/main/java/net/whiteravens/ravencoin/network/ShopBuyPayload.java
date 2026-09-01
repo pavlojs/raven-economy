@@ -28,14 +28,21 @@ import net.whiteravens.ravencoin.RavenCoin;
  * <p>Which shop is not on the wire. The only shop a player can buy from is the
  * one whose screen they have open, and the server already knows which that is.
  *
+ * @param fromAccount whether to pay out of the buyer's account rather than
+ *                    their pockets. Only means anything where the price is
+ *                    RavenCoin; the shop decides that, not the screen.
  * @param lots how many times to run the trade
  */
-public record ShopBuyPayload(int lots) implements CustomPacketPayload {
+public record ShopBuyPayload(int lots, boolean fromAccount) implements CustomPacketPayload {
     public static final Type<ShopBuyPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(RavenCoin.MOD_ID, "shop_buy"));
 
-    public static final StreamCodec<ByteBuf, ShopBuyPayload> STREAM_CODEC =
-            StreamCodec.composite(ByteBufCodecs.VAR_INT, ShopBuyPayload::lots, ShopBuyPayload::new);
+    public static final StreamCodec<ByteBuf, ShopBuyPayload> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_INT,
+            ShopBuyPayload::lots,
+            ByteBufCodecs.BOOL,
+            ShopBuyPayload::fromAccount,
+            ShopBuyPayload::new);
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

@@ -132,5 +132,8 @@
   "screen.ravencoin.atm.rank.buy": "Kup",
   "screen.ravencoin.atm.rank.owned": "masz",
   "screen.ravencoin.atm.rank.locked": "najpierw %s",
-  "screen.ravencoin.atm.rank.earned": "%2$s z %1$s"
+  "screen.ravencoin.atm.rank.earned": "%2$s z %1$s",
+  "screen.ravencoin.shop.units": "%s×",
+  "screen.ravencoin.shop.purse.pocket": "Kieszeń",
+  "screen.ravencoin.shop.purse.account": "Konto"
 }

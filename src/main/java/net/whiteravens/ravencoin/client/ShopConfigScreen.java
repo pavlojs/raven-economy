@@ -180,7 +180,7 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop != null) {
-            graphics.drawString(this.font, ShopText.stock(shop), 8, 84, 0xC0C0C0, true);
+            graphics.drawString(this.font, ShopText.stockOnPanel(shop), 8, 84, 0x555555, false);
         }
     }
 

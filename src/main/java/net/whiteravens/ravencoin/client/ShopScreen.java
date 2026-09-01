@@ -19,11 +19,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.FormattedText;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.block.entity.ShopBlockEntity;
@@ -31,19 +30,21 @@ import net.whiteravens.ravencoin.menu.ShopMenu;
 import net.whiteravens.ravencoin.network.ShopBuyPayload;
 import net.whiteravens.ravencoin.shop.ShopStock;
 import net.whiteravens.ravencoin.shop.ShopText;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /**
  * The buying screen.
  *
- * <p>Reads the offer straight off the block entity, which every client that can
- * see the block already has a copy of. That is why the price on this screen and
- * the price on the floating label cannot drift apart: they are the same field,
- * read twice.
+ * <p>Both sides of the trade are shown as the items they are, in the same two
+ * frames the owner picked them in. Names are on the tooltip and on the sign
+ * above the block, not on the panel: a price is an arbitrary item, and a shop
+ * that sells for a "Supermassive QIO Drive" needs 26 more pixels than this
+ * panel has to say so.
  *
- * <p>The button says what the whole order costs, because the number a buyer
- * actually needs is the total and working it out in their head is exactly the
- * moment a shop loses a sale.
+ * <p>Reads the offer straight off the block entity, which every client that can
+ * see the block already has a copy of. That is why the price here and the price
+ * on the floating sign cannot drift apart: they are the same field, read twice.
  */
 public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
     private static final ResourceLocation TEXTURE =
@@ -52,16 +53,42 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
     /** One order, in lots. Four digits is more than any shop's chest can supply anyway. */
     private static final int MAX_DIGITS = 4;
 
-    /** Left edge of the four lines of the offer, clear of the product's icon. */
-    private static final int TEXT_LEFT = 34;
+    private static final int PRODUCT_SLOT_X = 7;
+    private static final int PRICE_SLOT_X = 91;
+    private static final int SLOT_Y = 28;
+    private static final int SLOT_SIZE = 18;
 
-    /** How much room those lines have before they run off the panel. */
-    private static final int TEXT_WIDTH = 176 - TEXT_LEFT - 8;
+    /** Where the count beside each frame starts, and how much room it has. */
+    private static final int PRODUCT_TEXT_X = 30;
 
-    private static final FormattedText ELLIPSIS = FormattedText.of("…");
+    private static final int PRICE_TEXT_X = 114;
 
+    private static final int COUNT_WIDTH = 54;
+
+    /** What the "you have" line gets, with the purse switch beside it. */
+    private static final int HELD_WIDTH = 94;
+
+    /** Gold dark enough to stay gold against a #C6C6C6 panel. */
+    private static final int COIN_INK = 0x8A6A00;
+
+    /**
+     * Which purse the buyer is spending from.
+     *
+     * <p>Remembered for as long as the client runs rather than per shop: a
+     * player who banks their money wants to buy from their account at every
+     * shop, and being asked again at each counter is the annoying half of a
+     * choice.
+     */
+    private static boolean fromAccount;
+
+    @Nullable
     private EditBox lots;
+
+    @Nullable
     private Button buy;
+
+    @Nullable
+    private Button purse;
 
     public ShopScreen(ShopMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -78,7 +105,7 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
                 this.font,
                 this.leftPos + 8,
                 this.topPos + 78,
-                40,
+                34,
                 16,
                 Component.translatable("screen.ravencoin.shop.lots"));
         this.lots.setMaxLength(MAX_DIGITS);
@@ -86,20 +113,36 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         this.lots.setValue("1");
         this.addRenderableWidget(this.lots);
 
+        this.purse = Button.builder(this.purseText(), button -> {
+                    fromAccount = !fromAccount;
+                    button.setMessage(this.purseText());
+                })
+                .bounds(this.leftPos + 106, this.topPos + 61, 62, 16)
+                .build();
+        this.addRenderableWidget(this.purse);
+
         this.buy = Button.builder(Component.translatable("screen.ravencoin.shop.buy"), button -> this.send())
-                .bounds(this.leftPos + 52, this.topPos + 77, 116, 18)
+                .bounds(this.leftPos + 46, this.topPos + 77, 122, 18)
                 .build();
         this.addRenderableWidget(this.buy);
+    }
+
+    private Component purseText() {
+        return Component.translatable(
+                fromAccount ? "screen.ravencoin.shop.purse.account" : "screen.ravencoin.shop.purse.pocket");
     }
 
     private void send() {
         int wanted = this.wanted();
         if (wanted > 0) {
-            PacketDistributor.sendToServer(new ShopBuyPayload(wanted));
+            PacketDistributor.sendToServer(new ShopBuyPayload(wanted, fromAccount));
         }
     }
 
     private int wanted() {
+        if (this.lots == null) {
+            return 0;
+        }
         try {
             return Integer.parseInt(this.lots.getValue().trim());
         } catch (NumberFormatException notANumber) {
@@ -107,19 +150,33 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         }
     }
 
-    /** Keeps the button's total honest while the buyer types, and greys it out when the shop cannot serve. */
+    /**
+     * Keeps the button's total honest while the buyer types, greys it out when
+     * the shop cannot serve, and hides the purse switch where it would be a lie.
+     *
+     * <p>An account holds RavenCoin and nothing else, so a shop priced in iron
+     * is paid out of pockets whatever the switch says. Showing a switch that
+     * changed nothing would be worse than showing none.
+     */
     @Override
     protected void containerTick() {
         super.containerTick();
         ShopBlockEntity shop = this.menu.shop();
         int wanted = this.wanted();
+
+        if (this.purse != null) {
+            this.purse.visible = shop != null && shop.configured() && shop.pricedInCoin();
+        }
+        if (this.buy == null) {
+            return;
+        }
         if (shop == null || !shop.configured() || wanted <= 0) {
             this.buy.setMessage(Component.translatable("screen.ravencoin.shop.buy"));
             this.buy.active = false;
             return;
         }
         this.buy.setMessage(Component.translatable(
-                "screen.ravencoin.shop.buy_for", ShopText.amount(shop.price(), wanted * shop.priceUnits())));
+                "screen.ravencoin.shop.buy_for", ShopText.count(shop.price(), wanted * shop.priceUnits())));
         this.buy.active = true;
     }
 
@@ -129,7 +186,8 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop != null && shop.configured()) {
-            graphics.renderItem(shop.product(), this.leftPos + 12, this.topPos + 22);
+            graphics.renderItem(shop.product(), this.leftPos + PRODUCT_SLOT_X + 1, this.topPos + SLOT_Y + 1);
+            graphics.renderItem(shop.price(), this.leftPos + PRICE_SLOT_X + 1, this.topPos + SLOT_Y + 1);
         }
     }
 
@@ -139,53 +197,97 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop == null || !shop.configured()) {
-            this.line(graphics, Component.translatable("screen.ravencoin.shop.error.not_set_up"), 24, 0x404040, false);
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    Component.translatable("screen.ravencoin.shop.error.not_set_up"),
+                    8,
+                    32,
+                    160,
+                    0x404040,
+                    false);
             return;
         }
 
-        this.line(graphics, ShopText.amount(shop.product(), shop.productUnits()), 24, 0xFFFFFF, true);
-        this.line(
+        graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.goods"), 8, 18, 0x404040, false);
+        graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.price"), 92, 18, 0x404040, false);
+        Labels.draw(
                 graphics,
-                Component.translatable("screen.ravencoin.shop.for", ShopText.amount(shop.price(), shop.priceUnits())),
-                36,
-                0xFFD700,
-                true);
-        this.line(graphics, ShopText.stock(shop), 48, 0xC0C0C0, true);
+                this.font,
+                ShopText.count(shop.product(), shop.productUnits()),
+                PRODUCT_TEXT_X,
+                SLOT_Y + 5,
+                COUNT_WIDTH,
+                0x404040,
+                false);
+        Labels.draw(
+                graphics,
+                this.font,
+                ShopText.count(shop.price(), shop.priceUnits()),
+                PRICE_TEXT_X,
+                SLOT_Y + 5,
+                COUNT_WIDTH,
+                COIN_INK,
+                false);
 
-        long held = ShopStock.count(ShopStock.pockets(this.minecraft.player), shop.price());
-        this.line(
+        Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 52, 160, 0x555555, false);
+
+        long held = shop.pricedInCoin() && fromAccount
+                ? this.menu.balance()
+                : ShopStock.count(ShopStock.pockets(this.minecraft.player), shop.price());
+        Labels.draw(
                 graphics,
-                Component.translatable("screen.ravencoin.shop.you_have", ShopText.amount(shop.price(), (int) Math.min(held, Integer.MAX_VALUE))),
-                60,
-                0xC0C0C0,
+                this.font,
+                Component.translatable(
+                        "screen.ravencoin.shop.you_have",
+                        ShopText.count(shop.price(), (int) Math.min(held, Integer.MAX_VALUE))),
+                8,
+                64,
+                HELD_WIDTH,
+                0x555555,
                 false);
     }
 
     /**
-     * Draws one line of the offer, cut short rather than off the edge.
+     * The names live here, on the tooltip.
      *
-     * <p>A price is an arbitrary item, and the server shop's buy-back prices
-     * goods that are named things like "Supermassive QIO Drive" — measured at
-     * 150 pixels against the 134 this panel has. {@code drawString} neither
-     * wraps nor clips, so without this the name runs out over the player's own
-     * inventory and off the screen.
+     * <p>Drawn after everything else so a name that is wider than the panel is
+     * over the panel rather than clipped inside it, which is the whole reason
+     * the two counts on the panel no longer carry one.
      */
-    private void line(GuiGraphics graphics, Component text, int y, int color, boolean shadow) {
-        if (this.font.width(text) <= TEXT_WIDTH) {
-            graphics.drawString(this.font, text, TEXT_LEFT, y, color, shadow);
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        this.renderTooltip(graphics, mouseX, mouseY);
+
+        ShopBlockEntity shop = this.menu.shop();
+        if (shop == null || !shop.configured()) {
             return;
         }
-        FormattedText clipped = FormattedText.composite(
-                this.font.substrByWidth(text, TEXT_WIDTH - this.font.width(ELLIPSIS)), ELLIPSIS);
-        graphics.drawString(
-                this.font, Language.getInstance().getVisualOrder(clipped), TEXT_LEFT, y, color, shadow);
+        this.nameTooltip(graphics, mouseX, mouseY, PRODUCT_SLOT_X, shop.product());
+        this.nameTooltip(graphics, mouseX, mouseY, PRICE_SLOT_X, shop.price());
+    }
+
+    private void nameTooltip(GuiGraphics graphics, int mouseX, int mouseY, int slotX, ItemStack good) {
+        if (this.over(mouseX, mouseY, slotX)) {
+            graphics.renderTooltip(this.font, good.getHoverName(), mouseX, mouseY);
+        }
+    }
+
+    private boolean over(double mouseX, double mouseY, int slotX) {
+        double x = mouseX - this.leftPos - slotX;
+        double y = mouseY - this.topPos - SLOT_Y;
+        return x >= 0 && x < SLOT_SIZE && y >= 0 && y < SLOT_SIZE;
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         // Without this, typing a quantity that contains the inventory key closes
         // the screen mid-number.
-        if (this.lots.isFocused() && this.lots.canConsumeInput() && keyCode != GLFW.GLFW_KEY_ESCAPE) {
+        if (this.lots != null
+                && this.lots.isFocused()
+                && this.lots.canConsumeInput()
+                && keyCode != GLFW.GLFW_KEY_ESCAPE) {
             return this.lots.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

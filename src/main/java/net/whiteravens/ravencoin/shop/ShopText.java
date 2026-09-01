@@ -46,6 +46,23 @@ public final class ShopText {
         return Component.translatable("screen.ravencoin.shop.stack", Amounts.format(units), good.getHoverName());
     }
 
+    /**
+     * {@return an amount of one good, worded for a screen that is already
+     * showing you what the good is}
+     *
+     * <p>The same number as {@link #amount}, without the name. Both shop screens
+     * draw the item itself now, so repeating "Supermassive QIO Drive" beside its
+     * own icon bought nothing and cost 26 pixels more than the panel has.
+     * RavenCoin keeps its unit, because "120" and "120 RC" are not equally clear
+     * and the two extra letters always fit.
+     */
+    public static Component count(ItemStack good, int units) {
+        if (good.is(ModItems.COIN.get())) {
+            return Component.translatable("screen.ravencoin.shop.coins", Amounts.format(units));
+        }
+        return Component.translatable("screen.ravencoin.shop.units", Amounts.format(units));
+    }
+
     /** {@return what the sign over a shop says, top line first} */
     public static List<Component> label(ShopBlockEntity shop) {
         List<Component> lines = new ArrayList<>(3);
@@ -56,19 +73,42 @@ public final class ShopText {
         return lines;
     }
 
-    /** {@return the stock line, which is the one thing a passer-by most wants to know} */
+    /**
+     * {@return the stock line for the sign above the block}
+     *
+     * <p>The one thing a passer-by most wants to know, in colours meant for a
+     * sign floating in the world — bright, because whatever is behind it is
+     * darker than they are.
+     */
     public static Component stock(ShopBlockEntity shop) {
+        return stock(shop, ChatFormatting.AQUA, ChatFormatting.RED, ChatFormatting.GRAY);
+    }
+
+    /**
+     * {@return the same line, in colours that survive a screen}
+     *
+     * <p>A Minecraft panel is #C6C6C6, and aqua, red and grey were all chosen
+     * against a dark sky. On this background the first two are pale and the
+     * third is all but invisible — measured, by drawing the panel and looking at
+     * it. Same words, darker end of the same hues.
+     */
+    public static Component stockOnPanel(ShopBlockEntity shop) {
+        return stock(shop, ChatFormatting.DARK_AQUA, ChatFormatting.DARK_RED, ChatFormatting.DARK_GRAY);
+    }
+
+    private static Component stock(
+            ShopBlockEntity shop, ChatFormatting unlimited, ChatFormatting problem, ChatFormatting count) {
         if (shop.admin()) {
-            return Component.translatable("screen.ravencoin.shop.unlimited").withStyle(ChatFormatting.AQUA);
+            return Component.translatable("screen.ravencoin.shop.unlimited").withStyle(unlimited);
         }
         if (!shop.hasContainer()) {
-            return Component.translatable("screen.ravencoin.shop.no_container").withStyle(ChatFormatting.RED);
+            return Component.translatable("screen.ravencoin.shop.no_container").withStyle(problem);
         }
         if (shop.trades() <= 0) {
-            return Component.translatable("screen.ravencoin.shop.out_of_stock").withStyle(ChatFormatting.RED);
+            return Component.translatable("screen.ravencoin.shop.out_of_stock").withStyle(problem);
         }
         return Component.translatable("screen.ravencoin.shop.in_stock", Amounts.format(shop.trades()))
-                .withStyle(ChatFormatting.GRAY);
+                .withStyle(count);
     }
 
     /** {@return the chat line for a trade that happened, or the reason one did not} */

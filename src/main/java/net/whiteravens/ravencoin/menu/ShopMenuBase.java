@@ -19,6 +19,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -37,11 +38,18 @@ import org.jetbrains.annotations.Nullable;
 public abstract class ShopMenuBase extends AbstractContainerMenu {
     private final BlockPos pos;
     private final Player player;
+    private final ContainerData balance;
 
     protected ShopMenuBase(MenuType<?> type, int containerId, Inventory inventory, BlockPos pos, int inventoryTop) {
         super(type, containerId);
         this.pos = pos;
         this.player = inventory.player;
+        // A shop can be paid out of the account as well as out of the pockets, so
+        // this screen has to be able to show the same number the bank does.
+        this.balance = inventory.player.level().isClientSide
+                ? BalanceData.empty()
+                : BalanceData.of(inventory.player);
+        this.addDataSlots(this.balance);
 
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
@@ -51,6 +59,11 @@ public abstract class ShopMenuBase extends AbstractContainerMenu {
         for (int column = 0; column < 9; column++) {
             this.addSlot(new Slot(inventory, column, 8 + column * 18, inventoryTop + 58));
         }
+    }
+
+    /** {@return the shopper's account balance, as the server last sent it} */
+    public long balance() {
+        return BalanceData.read(this.balance);
     }
 
     public BlockPos pos() {

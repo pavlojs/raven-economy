@@ -132,5 +132,8 @@
   "screen.ravencoin.atm.rank.buy": "Buy",
   "screen.ravencoin.atm.rank.owned": "yours",
   "screen.ravencoin.atm.rank.locked": "needs %s",
-  "screen.ravencoin.atm.rank.earned": "%2$s of %1$s"
+  "screen.ravencoin.atm.rank.earned": "%2$s of %1$s",
+  "screen.ravencoin.shop.units": "%s×",
+  "screen.ravencoin.shop.purse.pocket": "Pocket",
+  "screen.ravencoin.shop.purse.account": "Account"
 }

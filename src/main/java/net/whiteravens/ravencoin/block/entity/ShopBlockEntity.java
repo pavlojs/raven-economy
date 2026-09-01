@@ -38,11 +38,15 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.whiteravens.ravencoin.block.ServerShopBlock;
 import net.whiteravens.ravencoin.config.RavenCoinConfig;
+import net.whiteravens.ravencoin.economy.EconomyService;
+import net.whiteravens.ravencoin.economy.LedgerEntry;
+import net.whiteravens.ravencoin.economy.TransactionResult;
 import net.whiteravens.ravencoin.menu.ShopConfigMenu;
 import net.whiteravens.ravencoin.menu.ShopMenu;
 import net.whiteravens.ravencoin.rank.Rank;
 import net.whiteravens.ravencoin.rank.RankService;
 import net.whiteravens.ravencoin.registry.ModBlockEntities;
+import net.whiteravens.ravencoin.registry.ModItems;
 import net.whiteravens.ravencoin.shop.ShopResult;
 import net.whiteravens.ravencoin.shop.ShopStock;
 import org.jetbrains.annotations.Nullable;
@@ -257,7 +261,7 @@ public class ShopBlockEntity extends BlockEntity {
     // block at this position and cannot change while this runs. The invariant is
     // real; it just spans a method call, which is further than the analyser sees.
     @SuppressWarnings("NullAway")
-    public Outcome buy(ServerPlayer buyer, int wanted) {
+    public Outcome buy(ServerPlayer buyer, int wanted, boolean fromAccount) {
         if (!RavenCoinConfig.COMMON.shopsEnabled.get()) {
             return new Outcome(ShopResult.DISABLED, 0);
         }
@@ -274,11 +278,21 @@ public class ShopBlockEntity extends BlockEntity {
         }
 
         IItemHandler pockets = ShopStock.pockets(buyer);
+        // Only money can come out of an account, so a shop priced in iron is
+        // paid in iron whatever the buyer's screen was set to.
+        boolean banked = fromAccount && this.pricedInCoin();
         long batch = Math.clamp(wanted, 1, MAX_TRADES_SHOWN);
         long inStock = this.admin() ? batch : ShopStock.count(till, this.product) / this.productUnits;
-        long affordable = ShopStock.count(pockets, this.price) / this.priceUnits;
+        long affordable = banked
+                ? EconomyService.balance(buyer.server, buyer.getUUID()) / this.priceUnits
+                : ShopStock.count(pockets, this.price) / this.priceUnits;
         long carryable = ShopStock.room(pockets, this.product) / this.productUnits;
-        long tillRoom = this.admin() ? batch : ShopStock.room(till, this.price) / this.priceUnits;
+        // A price in coin is banked to the owner, so the till never has to have
+        // room for it — which is also why a coin shop can no longer fill up and
+        // stop trading while its owner is away.
+        long tillRoom = this.admin() || this.pricedInCoin()
+                ? batch
+                : ShopStock.room(till, this.price) / this.priceUnits;
 
         long lots = Math.min(Math.min(batch, inStock), Math.min(affordable, Math.min(carryable, tillRoom)));
         if (lots <= 0) {
@@ -304,32 +318,95 @@ public class ShopBlockEntity extends BlockEntity {
             }
         }
 
-        long taken = ShopStock.take(pockets, this.price, paid);
+        long taken = banked ? this.debit(buyer, paid) : ShopStock.take(pockets, this.price, paid);
         if (taken < paid) {
             // Reported as no room, not as no money: the wallet was counted a few
             // lines ago and had enough. What is missing is a free slot for the
             // change from a broken coin block, and telling a player with 540 RC
             // that they cannot afford 100 sends them to find money they already
             // have.
-            this.give(buyer, pockets, this.price, taken);
+            if (banked) {
+                // Put the money straight back where it came from. There is no
+                // "not enough room in an account" — this branch is a partial
+                // debit, which the service does not do, so it is here only
+                // because the pocket path can reach it.
+                EconomyService.deposit(
+                        buyer.server, buyer.getUUID(), buyer.getGameProfile().getName(), taken);
+            } else {
+                this.give(buyer, pockets, this.price, taken);
+            }
             if (!this.admin()) {
                 this.restock(till, this.product, got);
             }
-            return new Outcome(ShopResult.NO_ROOM, 0);
+            return new Outcome(banked ? ShopResult.CANNOT_PAY : ShopResult.NO_ROOM, 0);
         }
 
         if (!this.admin()) {
-            long unbanked = ShopStock.put(till, this.price, paid);
-            if (unbanked > 0) {
-                // The room check said this would fit. If it somehow did not, the
-                // owner finds their money on the floor rather than nowhere.
-                ShopStock.spill(this.level, this.worldPosition, this.price, unbanked);
-            }
+            this.credit(buyer, till, paid);
         }
 
         this.give(buyer, pockets, this.product, got);
+        this.note(buyer, paid, got);
         this.refresh();
         return new Outcome(ShopResult.OK, (int) lots);
+    }
+
+    /** {@return whether this shop is paid in RavenCoin, which is what makes an account usable} */
+    public boolean pricedInCoin() {
+        return this.price.is(ModItems.COIN.get());
+    }
+
+    /** {@return how much was actually taken out of the buyer's account} */
+    private long debit(ServerPlayer buyer, long paid) {
+        TransactionResult result = EconomyService.withdraw(
+                buyer.server, buyer.getUUID(), buyer.getGameProfile().getName(), paid);
+        return result.ok() ? paid : 0;
+    }
+
+    /**
+     * Pays the owner.
+     *
+     * <p>Coin goes to their account, which is what lets a shop keep trading
+     * while they are offline and stops a busy shop filling its own chest with
+     * its own takings. Anything else still has to be a physical thing in a
+     * physical container.
+     */
+    private void credit(ServerPlayer buyer, IItemHandler till, long paid) {
+        if (this.pricedInCoin() && this.owner != null) {
+            EconomyService.deposit(buyer.server, this.owner, this.ownerName, paid);
+            return;
+        }
+        long unbanked = ShopStock.put(till, this.price, paid);
+        if (unbanked > 0) {
+            // The room check said this would fit. If it somehow did not, the
+            // owner finds their money on the floor rather than nowhere.
+            ShopStock.spill(this.level, this.worldPosition, this.price, unbanked);
+        }
+    }
+
+    /** Writes the trade onto both statements, when there is money in it to write about. */
+    private void note(ServerPlayer buyer, long paid, long got) {
+        if (this.pricedInCoin()) {
+            EconomyService.note(
+                    buyer.server,
+                    buyer.getUUID(),
+                    LedgerEntry.Kind.BUY,
+                    paid,
+                    this.product.getHoverName().getString());
+            if (!this.admin() && this.owner != null && !this.owner.equals(buyer.getUUID())) {
+                EconomyService.note(
+                        buyer.server, this.owner, LedgerEntry.Kind.SALE, paid, buyer.getGameProfile().getName());
+            }
+        } else if (this.product.is(ModItems.COIN.get())) {
+            // A buy-back: the shop is selling coin, so the money arriving in the
+            // buyer's pockets is worth a line even though no account moved.
+            EconomyService.note(
+                    buyer.server,
+                    buyer.getUUID(),
+                    LedgerEntry.Kind.SALE,
+                    got,
+                    this.price.getHoverName().getString());
+        }
     }
 
     /** Hands units to the buyer, dropping at their feet whatever will not fit. */
