@@ -24,6 +24,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.whiteravens.ravencoin.client.ClientPayloads;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.EconomyService;
@@ -68,6 +69,12 @@ public final class ModNetwork {
         registrar.playToServer(
                 AtmRankBuyPayload.TYPE, AtmRankBuyPayload.STREAM_CODEC, ModNetwork::onAtmRankBuy);
         registrar.playToServer(ShopStallPayload.TYPE, ShopStallPayload.STREAM_CODEC, ModNetwork::onShopStall);
+        // Both sides register every channel, including the two that only ever
+        // travel one way. A channel the client knows and the server does not is
+        // not a channel the server simply never uses — it is a handshake the
+        // client refuses, and the server could not have sent on it anyway.
+        registrar.playToClient(AtmListPayload.TYPE, AtmListPayload.STREAM_CODEC, ClientPayloads::list);
+        registrar.playToClient(AtmNoticePayload.TYPE, AtmNoticePayload.STREAM_CODEC, ClientPayloads::notice);
     }
 
     /**
