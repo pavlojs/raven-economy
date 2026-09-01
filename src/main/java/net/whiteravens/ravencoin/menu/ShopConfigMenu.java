@@ -29,7 +29,7 @@ import net.whiteravens.ravencoin.registry.ModMenus;
  */
 public class ShopConfigMenu extends ShopMenuBase {
     /** Taller than the buying screen — the settings need the room above the inventory. */
-    private static final int INVENTORY_TOP = 134;
+    private static final int INVENTORY_TOP = 154;
 
     public ShopConfigMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());

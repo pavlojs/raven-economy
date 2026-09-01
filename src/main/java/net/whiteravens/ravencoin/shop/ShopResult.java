@@ -40,5 +40,9 @@ public enum ShopResult {
     /** The shop is reserved for a rank the buyer does not hold. */
     RANK_REQUIRED,
     /** The operator switched shops off in the config. */
-    DISABLED
+    DISABLED,
+    /** Somebody else already rents this stall. */
+    TAKEN,
+    /** The rent has not been paid, so the stall is shut. */
+    CLOSED
 }

@@ -53,6 +53,8 @@ public record LedgerEntry(long when, Kind kind, long amount, String other) {
         SALE(true),
         /** Spent on a rank. */
         RANK(false),
+        /** Paid to keep a market stall. */
+        RENT(false),
         /** An operator moved it. */
         ADJUST(true);
 

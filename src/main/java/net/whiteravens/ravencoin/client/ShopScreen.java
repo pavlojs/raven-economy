@@ -27,7 +27,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.block.entity.ShopBlockEntity;
 import net.whiteravens.ravencoin.menu.ShopMenu;
+import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.network.ShopBuyPayload;
+import net.whiteravens.ravencoin.network.ShopStallPayload;
 import net.whiteravens.ravencoin.shop.ShopStock;
 import net.whiteravens.ravencoin.shop.ShopText;
 import org.jetbrains.annotations.Nullable;
@@ -90,6 +92,9 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
     @Nullable
     private Button purse;
 
+    @Nullable
+    private Button rent;
+
     public ShopScreen(ShopMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 176;
@@ -125,6 +130,14 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
                 .bounds(this.leftPos + 46, this.topPos + 77, 122, 18)
                 .build();
         this.addRenderableWidget(this.buy);
+
+        this.rent = Button.builder(
+                        Component.translatable("screen.ravencoin.shop.rent.take"),
+                        button -> PacketDistributor.sendToServer(
+                                new ShopStallPayload(ShopStallPayload.Action.RENT)))
+                .bounds(this.leftPos + 8, this.topPos + 77, 160, 18)
+                .build();
+        this.addRenderableWidget(this.rent);
     }
 
     private Component purseText() {
@@ -164,6 +177,25 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         ShopBlockEntity shop = this.menu.shop();
         int wanted = this.wanted();
 
+        // An empty stall is an advertisement, not a counter: there is nothing to
+        // buy until somebody has rented it and put something in it.
+        boolean toLet = shop != null && shop.toLet();
+        if (this.rent != null) {
+            this.rent.visible = toLet;
+        }
+        if (this.lots != null) {
+            this.lots.visible = !toLet;
+        }
+        if (this.buy != null) {
+            this.buy.visible = !toLet;
+        }
+        if (toLet) {
+            if (this.purse != null) {
+                this.purse.visible = false;
+            }
+            return;
+        }
+
         if (this.purse != null) {
             this.purse.visible = shop != null && shop.configured() && shop.pricedInCoin();
         }
@@ -197,6 +229,39 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         Branding.draw(graphics, this.font, 168, this.inventoryLabelY);
 
         ShopBlockEntity shop = this.menu.shop();
+        if (shop != null && shop.toLet()) {
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    Component.translatable("screen.ravencoin.shop.rent.offer"),
+                    8,
+                    22,
+                    160,
+                    0x404040,
+                    false);
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    Component.translatable(
+                            "screen.ravencoin.shop.rent.terms",
+                            Amounts.format(shop.quotedRent()),
+                            shop.quotedDays()),
+                    8,
+                    36,
+                    160,
+                    COIN_INK,
+                    false);
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    Component.translatable("screen.ravencoin.shop.rent.note"),
+                    8,
+                    52,
+                    160,
+                    0x555555,
+                    false);
+            return;
+        }
         if (shop == null || !shop.configured()) {
             Labels.draw(
                     graphics,
@@ -231,7 +296,18 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
                 COIN_INK,
                 false);
 
-        Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 52, 160, 0x555555, false);
+        Labels.draw(
+                graphics,
+                this.font,
+                shop.closed()
+                        ? Component.translatable("screen.ravencoin.shop.error.closed")
+                                .withStyle(net.minecraft.ChatFormatting.DARK_RED)
+                        : ShopText.stockOnPanel(shop),
+                8,
+                52,
+                160,
+                0x555555,
+                false);
 
         long held = shop.pricedInCoin() && fromAccount
                 ? this.menu.balance()

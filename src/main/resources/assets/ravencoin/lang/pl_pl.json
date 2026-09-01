@@ -137,5 +137,17 @@
   "screen.ravencoin.shop.purse.pocket": "Kieszeń",
   "screen.ravencoin.shop.purse.account": "Konto",
   "screen.ravencoin.atm.error.no_amount": "Najpierw wpisz kwotę",
-  "screen.ravencoin.atm.error.no_player": "Wpisz, komu przelać"
+  "screen.ravencoin.atm.error.no_player": "Wpisz, komu przelać",
+  "screen.ravencoin.shop.error.taken": "To stoisko jest już wynajęte",
+  "screen.ravencoin.shop.error.closed": "Zamknięte — zaległy czynsz",
+  "screen.ravencoin.shop.restock": "Zaopatrz",
+  "screen.ravencoin.shop.to_let_on": "Wynajem: tak",
+  "screen.ravencoin.shop.to_let_off": "Wynajem: nie",
+  "screen.ravencoin.shop.rent.offer": "Stoisko do wynajęcia",
+  "screen.ravencoin.shop.rent.terms": "%s RC na %s dni",
+  "screen.ravencoin.shop.rent.note": "Sam wybierasz towar i tu go uzupełniasz",
+  "screen.ravencoin.shop.rent.take": "Wynajmij stoisko",
+  "screen.ravencoin.shop.rent.taken": "Stoisko jest twoje — ustaw, co sprzedaje",
+  "screen.ravencoin.atm.history.rent": "Czynsz",
+  "screen.ravencoin.atm.history.rent.from": "Czynsz za stoisko"
 }

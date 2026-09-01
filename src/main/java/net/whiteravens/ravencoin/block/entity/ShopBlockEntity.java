@@ -24,6 +24,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -82,6 +83,9 @@ public class ShopBlockEntity extends BlockEntity {
     /** Stock is recounted this often. Once a second is faster than a chest realistically empties. */
     private static final int RECOUNT_TICKS = 20;
 
+    /** How often rent is looked at. Thirty seconds, against a period measured in days. */
+    private static final int RENT_TICKS = 600;
+
     /** Looked at in this order, so a shop standing on a chest prefers the chest under it. */
     private static final Direction[] STOCK_SIDES = {
         Direction.DOWN, Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP
@@ -98,6 +102,20 @@ public class ShopBlockEntity extends BlockEntity {
     private UUID owner;
     private String ownerName = "";
 
+    /** Whether an operator has put this server shop on the market. */
+    private boolean rentable;
+
+    /** The rent and period as the server quotes them, for a client to draw. */
+    private long quotedRent;
+
+    private int quotedDays;
+
+    /** When the rent runs out, in epoch milliseconds. Zero when nobody rents this. */
+    private long rentPaidUntil;
+
+    /** When the rent first could not be taken, or zero while it is paid up. */
+    private long arrearsSince;
+
     @Nullable
     private Direction stockSide;
 
@@ -107,7 +125,54 @@ public class ShopBlockEntity extends BlockEntity {
         super(ModBlockEntities.SHOP.get(), pos, state);
     }
 
-    /** {@return true when this is the operator's shop: infinite stock, no owner, no chest} */
+    /**
+     * {@return whether stock is infinite and payment is destroyed}
+     *
+     * <p>Not the same question as {@link #admin()}, and the difference is the
+     * whole of the rental feature: a rented stall stands on a server shop block
+     * but sells a real player's real goods out of a real barrel. Every place
+     * that used to ask whether the block was the operator's is really asking
+     * this instead — whether the goods come from nowhere.
+     */
+    public boolean bottomless() {
+        return this.admin() && this.owner == null;
+    }
+
+    /** {@return whether this is a server shop somebody is renting} */
+    public boolean rented() {
+        return this.admin() && this.owner != null;
+    }
+
+    /** {@return whether this is a stall standing empty, waiting for a renter} */
+    public boolean toLet() {
+        return this.rentable && this.admin() && this.owner == null;
+    }
+
+    /** {@return whether the rent went unpaid, which shuts the stall without emptying it} */
+    public boolean closed() {
+        return this.rented() && this.arrearsSince != 0;
+    }
+
+    public boolean rentable() {
+        return this.rentable;
+    }
+
+    /** {@return what one period of rent costs, read from the config} */
+    public static long rentPrice() {
+        return RavenCoinConfig.COMMON.rentPrice.get();
+    }
+
+    /** {@return the rent as the server quoted it, which is what a client should show} */
+    public long quotedRent() {
+        return this.quotedRent;
+    }
+
+    /** {@return how many days that rent buys, as the server quoted it} */
+    public int quotedDays() {
+        return this.quotedDays;
+    }
+
+    /** {@return true when the block itself is the operator's, rented or not} */
     public boolean admin() {
         return this.getBlockState().getBlock() instanceof ServerShopBlock;
     }
@@ -147,7 +212,7 @@ public class ShopBlockEntity extends BlockEntity {
 
     /** {@return whether a player shop has found a container to work out of} */
     public boolean hasContainer() {
-        return this.admin() || this.stockSide != null;
+        return this.bottomless() || this.stockSide != null;
     }
 
     /** {@return whether this shop has been told what it trades} */
@@ -172,7 +237,153 @@ public class ShopBlockEntity extends BlockEntity {
         if (player.hasPermissions(2)) {
             return true;
         }
-        return !this.admin() && player.getUUID().equals(this.owner);
+        // A renter configures their stall exactly as they would their own shop.
+        // Ownership, not the block, is what grants this.
+        return this.owner != null && player.getUUID().equals(this.owner);
+    }
+
+    /**
+     * Rents this stall to a player.
+     *
+     * <p>The first period is paid on the spot, so a stall is never held without
+     * having been paid for once. The money leaves the economy the way everything
+     * the operator sells does — a stall is the server's, and the rent is a sink.
+     */
+    public ShopResult rent(ServerPlayer player) {
+        if (!RavenCoinConfig.COMMON.rentEnabled.get() || !this.rentable) {
+            return ShopResult.DISABLED;
+        }
+        if (this.owner != null) {
+            return ShopResult.TAKEN;
+        }
+        if (this.stockSide == null && this.container() == null) {
+            // Enforced here rather than at the counter: a stall with nowhere to
+            // put the goods cannot be stocked, and finding that out after paying
+            // a week's rent is the wrong order to find it out in.
+            return ShopResult.NO_CONTAINER;
+        }
+        long price = rentPrice();
+        if (price > 0) {
+            TransactionResult paid = EconomyService.withdraw(
+                    player.server, player.getUUID(), player.getGameProfile().getName(), price);
+            if (!paid.ok()) {
+                return ShopResult.CANNOT_PAY;
+            }
+            EconomyService.note(player.server, player.getUUID(), LedgerEntry.Kind.RENT, price, "");
+        }
+
+        this.owner = player.getUUID();
+        this.ownerName = player.getGameProfile().getName();
+        this.rentPaidUntil = System.currentTimeMillis() + periodMillis();
+        this.arrearsSince = 0;
+        this.setChangedAndSync();
+        return ShopResult.OK;
+    }
+
+    /**
+     * Takes the next period's rent, or starts the clock on losing the stall.
+     *
+     * <p>Retried on every check while a stall is in arrears rather than once,
+     * because the reason it failed is usually an empty account and the fix is
+     * usually the renter putting money in it. Paying up reopens the stall with
+     * its stock where it was left.
+     */
+    private void chargeRent(MinecraftServer server) {
+        UUID renter = this.owner;
+        long now = System.currentTimeMillis();
+        if (renter == null || now < this.rentPaidUntil) {
+            return;
+        }
+        long price = rentPrice();
+        TransactionResult paid = price <= 0
+                ? TransactionResult.OK
+                : EconomyService.withdraw(server, renter, this.ownerName, price);
+        if (paid.ok()) {
+            if (price > 0) {
+                EconomyService.note(server, renter, LedgerEntry.Kind.RENT, price, "");
+            }
+            this.rentPaidUntil = now + periodMillis();
+            this.arrearsSince = 0;
+            this.setChangedAndSync();
+            return;
+        }
+        if (this.arrearsSince == 0) {
+            this.arrearsSince = now;
+            this.setChangedAndSync();
+            return;
+        }
+        if (now - this.arrearsSince >= graceMillis()) {
+            this.evict();
+        }
+    }
+
+    /**
+     * Ends a rental that was never paid up.
+     *
+     * <p>The stock is deliberately left in the container. Scattering somebody's
+     * goods on the floor of a server claim while they are offline is how a
+     * feature meant to be a market becomes a way to lose a chest, and an
+     * operator emptying a barrel by hand is a cheap alternative.
+     */
+    private void evict() {
+        this.owner = null;
+        this.ownerName = "";
+        this.rentPaidUntil = 0;
+        this.arrearsSince = 0;
+        // The next renter starts from an empty counter rather than inheriting a
+        // price somebody else set.
+        this.product = ItemStack.EMPTY;
+        this.price = ItemStack.EMPTY;
+        this.productUnits = 1;
+        this.priceUnits = 1;
+        this.requiredRank = "";
+        this.setChangedAndSync();
+    }
+
+    /** Marks a server shop as a stall, or takes it off the market. */
+    public void setRentable(boolean value) {
+        this.rentable = value;
+        this.setChangedAndSync();
+    }
+
+    /**
+     * Opens the container this stall sells out of.
+     *
+     * <p>The whole reason a stall needs this: the barrel stands on a claim the
+     * renter cannot open, on purpose, so that nobody but the renter reaches the
+     * goods. The shop opens it for them instead.
+     *
+     * @return whether there was a container with a screen of its own to open
+     */
+    public boolean openStock(ServerPlayer player) {
+        if (this.level == null || this.stockSide == null) {
+            return false;
+        }
+        if (this.level.getBlockEntity(this.worldPosition.relative(this.stockSide))
+                instanceof MenuProvider container) {
+            player.openMenu(container);
+            return true;
+        }
+        return false;
+    }
+
+    /** {@return how many single units of the goods are in the container} */
+    public long unitsInStock() {
+        IItemHandler till = this.container();
+        return till == null || this.product.isEmpty() ? 0 : ShopStock.count(till, this.product);
+    }
+
+    /** {@return when the rent next falls due, in epoch milliseconds, or zero} */
+    public long rentPaidUntil() {
+        return this.rentPaidUntil;
+    }
+
+    private static long periodMillis() {
+        return RavenCoinConfig.COMMON.rentDays.get() * 86_400_000L;
+    }
+
+    private static long graceMillis() {
+        return RavenCoinConfig.COMMON.rentGraceDays.get() * 86_400_000L;
     }
 
     /** Opens the buying screen. */
@@ -210,7 +421,7 @@ public class ShopBlockEntity extends BlockEntity {
     }
 
     private Component title() {
-        if (this.admin()) {
+        if (this.bottomless()) {
             return Component.translatable("block.ravencoin.server_shop");
         }
         return this.ownerName.isEmpty()
@@ -265,6 +476,9 @@ public class ShopBlockEntity extends BlockEntity {
         if (!RavenCoinConfig.COMMON.shopsEnabled.get()) {
             return new Outcome(ShopResult.DISABLED, 0);
         }
+        if (this.closed()) {
+            return new Outcome(ShopResult.CLOSED, 0);
+        }
         if (!this.configured()) {
             return new Outcome(ShopResult.NOT_SET_UP, 0);
         }
@@ -273,7 +487,7 @@ public class ShopBlockEntity extends BlockEntity {
         }
 
         IItemHandler till = this.container();
-        if (!this.admin() && till == null) {
+        if (!this.bottomless() && till == null) {
             return new Outcome(ShopResult.NO_CONTAINER, 0);
         }
 
@@ -282,7 +496,7 @@ public class ShopBlockEntity extends BlockEntity {
         // paid in iron whatever the buyer's screen was set to.
         boolean banked = fromAccount && this.pricedInCoin();
         long batch = Math.clamp(wanted, 1, MAX_TRADES_SHOWN);
-        long inStock = this.admin() ? batch : ShopStock.count(till, this.product) / this.productUnits;
+        long inStock = this.bottomless() ? batch : ShopStock.count(till, this.product) / this.productUnits;
         long affordable = banked
                 ? EconomyService.balance(buyer.server, buyer.getUUID()) / this.priceUnits
                 : ShopStock.count(pockets, this.price) / this.priceUnits;
@@ -290,7 +504,7 @@ public class ShopBlockEntity extends BlockEntity {
         // A price in coin is banked to the owner, so the till never has to have
         // room for it — which is also why a coin shop can no longer fill up and
         // stop trading while its owner is away.
-        long tillRoom = this.admin() || this.pricedInCoin()
+        long tillRoom = this.bottomless() || this.pricedInCoin()
                 ? batch
                 : ShopStock.room(till, this.price) / this.priceUnits;
 
@@ -308,7 +522,7 @@ public class ShopBlockEntity extends BlockEntity {
         // and a trade that takes one half without giving the other is somebody's
         // money gone. None of these branches should be reachable; they are here
         // because "should not be reachable" is what the last money bug said too.
-        if (!this.admin()) {
+        if (!this.bottomless()) {
             long pulled = ShopStock.take(till, this.product, got);
             if (pulled < got) {
                 // Put back what came out, not what was asked for. Restoring the
@@ -335,13 +549,13 @@ public class ShopBlockEntity extends BlockEntity {
             } else {
                 this.give(buyer, pockets, this.price, taken);
             }
-            if (!this.admin()) {
+            if (!this.bottomless()) {
                 this.restock(till, this.product, got);
             }
             return new Outcome(banked ? ShopResult.CANNOT_PAY : ShopResult.NO_ROOM, 0);
         }
 
-        if (!this.admin()) {
+        if (!this.bottomless()) {
             this.credit(buyer, till, paid);
         }
 
@@ -393,7 +607,7 @@ public class ShopBlockEntity extends BlockEntity {
                     LedgerEntry.Kind.BUY,
                     paid,
                     this.product.getHoverName().getString());
-            if (!this.admin() && this.owner != null && !this.owner.equals(buyer.getUUID())) {
+            if (!this.bottomless() && this.owner != null && !this.owner.equals(buyer.getUUID())) {
                 EconomyService.note(
                         buyer.server, this.owner, LedgerEntry.Kind.SALE, paid, buyer.getGameProfile().getName());
             }
@@ -450,7 +664,7 @@ public class ShopBlockEntity extends BlockEntity {
     /** {@return the container this shop works out of, or null for a server shop or a lonely one} */
     @Nullable
     private IItemHandler container() {
-        if (this.admin() || this.level == null) {
+        if (this.bottomless() || this.level == null) {
             return null;
         }
         if (this.stockSide != null) {
@@ -481,13 +695,18 @@ public class ShopBlockEntity extends BlockEntity {
         if (level.getGameTime() % RECOUNT_TICKS == 0) {
             shop.refresh();
         }
+        // Rent is measured in days, so half a minute is a fine resolution and a
+        // withdrawal attempt every second on a stall in arrears is not.
+        if (shop.rented() && level.getServer() != null && level.getGameTime() % RENT_TICKS == 0) {
+            shop.chargeRent(level.getServer());
+        }
     }
 
     private void refresh() {
         int before = this.trades;
         Direction sideBefore = this.stockSide;
 
-        if (this.admin()) {
+        if (this.bottomless()) {
             this.trades = UNLIMITED;
         } else if (!this.configured()) {
             this.trades = 0;
@@ -532,6 +751,11 @@ public class ShopBlockEntity extends BlockEntity {
         this.ownerName = tag.getString("OwnerName");
         this.owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
         this.trades = tag.getInt("Trades");
+        this.rentable = tag.getBoolean("Rentable");
+        this.quotedRent = tag.getLong("RentPrice");
+        this.quotedDays = tag.getInt("RentDays");
+        this.rentPaidUntil = tag.getLong("RentPaidUntil");
+        this.arrearsSince = tag.getLong("ArrearsSince");
         // from3DDataValue rather than values()[…]: this byte comes off disk, and a
         // corrupt or hand-edited one indexed straight into the array throws while
         // the block entity is loading, which fails the whole chunk. The 3D data
@@ -553,6 +777,13 @@ public class ShopBlockEntity extends BlockEntity {
         tag.putBoolean("Label", this.showLabel);
         tag.putString("OwnerName", this.ownerName);
         tag.putInt("Trades", this.trades);
+        tag.putBoolean("Rentable", this.rentable);
+        // Sent as well as saved: a client showing "100 RC" while the server
+        // charges 250 would be a money bug wearing a label.
+        tag.putLong("RentPrice", rentPrice());
+        tag.putInt("RentDays", RavenCoinConfig.COMMON.rentDays.get());
+        tag.putLong("RentPaidUntil", this.rentPaidUntil);
+        tag.putLong("ArrearsSince", this.arrearsSince);
         if (this.stockSide != null) {
             tag.putByte("StockSide", (byte) this.stockSide.get3DDataValue());
         }

@@ -132,11 +132,16 @@ def shop():
 
 
 def shop_config():
-    """The owner's screen. Same two frames, in the same places, on purpose."""
-    panel = Panel(176, 216)
+    """The owner's screen.
+
+    Same two frames as the buying screen, in the same places, on purpose. Twenty
+    pixels taller than it used to be, for the row that restocks a market stall
+    and puts a server shop on the market.
+    """
+    panel = Panel(176, 236)
     panel.slot(7, 28)
     panel.slot(91, 28)
-    panel.inventory(134)
+    panel.inventory(154)
     return panel
 
 

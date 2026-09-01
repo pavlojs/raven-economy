@@ -132,6 +132,8 @@ public final class ShopText {
             case NO_ROOM -> "screen.ravencoin.shop.error.no_room";
             case RANK_REQUIRED -> "screen.ravencoin.shop.error.rank_required";
             case DISABLED -> "screen.ravencoin.shop.error.disabled";
+            case TAKEN -> "screen.ravencoin.shop.error.taken";
+            case CLOSED -> "screen.ravencoin.shop.error.closed";
             case OK -> throw new IllegalArgumentException("OK is not an error");
         };
     }

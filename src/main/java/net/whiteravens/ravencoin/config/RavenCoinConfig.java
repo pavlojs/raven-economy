@@ -145,6 +145,24 @@ public final class RavenCoinConfig {
          */
         public final ModConfigSpec.BooleanValue shopsEnabled;
 
+        /** Whether a server shop can be marked as a stall for players to rent. */
+        public final ModConfigSpec.BooleanValue rentEnabled;
+
+        /** What one period of rent costs, taken from the renter's account. */
+        public final ModConfigSpec.LongValue rentPrice;
+
+        /** How long one payment of rent buys, in real days. */
+        public final ModConfigSpec.IntValue rentDays;
+
+        /**
+         * How long a stall waits, closed, before the rental lapses.
+         *
+         * <p>Counted from the moment the rent could not be taken. The stall stops
+         * selling immediately and the stock stays where it is, so a renter who
+         * went away for a weekend comes back to a shop rather than to nothing.
+         */
+        public final ModConfigSpec.IntValue rentGraceDays;
+
         /**
          * Whether ranks can be bought at all.
          *
@@ -209,6 +227,23 @@ public final class RavenCoinConfig {
                             "Whether shop blocks will trade.",
                             "false leaves them standing and configured, but closed.")
                     .define("shopsEnabled", true);
+            rentEnabled = builder
+                    .comment(
+                            "Whether server shops can be marked 'for rent' as market stalls.",
+                            "A rented stall behaves as that player's own shop: they choose",
+                            "what it sells, they restock it, and the takings are theirs.")
+                    .define("rentEnabled", true);
+            rentPrice = builder
+                    .comment("What one period of rent costs, in RavenCoin, from the renter's account.")
+                    .defineInRange("rentPrice", 100L, 0L, Long.MAX_VALUE);
+            rentDays = builder
+                    .comment("How many real days one payment of rent buys.")
+                    .defineInRange("rentDays", 7, 1, 365);
+            rentGraceDays = builder
+                    .comment(
+                            "How many real days a stall stays closed, with its stock kept,",
+                            "before an unpaid rental lapses and the stall is free again.")
+                    .defineInRange("rentGraceDays", 7, 0, 365);
             builder.pop();
 
             builder.comment("Ranks — the ladder itself lives in ravencoin-ranks.json").push("ranks");

@@ -25,11 +25,14 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.whiteravens.ravencoin.RavenCoin;
+import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.block.entity.ShopBlockEntity;
 import net.whiteravens.ravencoin.menu.ShopConfigMenu;
 import net.whiteravens.ravencoin.network.ShopPickPayload;
 import net.whiteravens.ravencoin.network.ShopSettingsPayload;
+import net.whiteravens.ravencoin.network.ShopStallPayload;
 import net.whiteravens.ravencoin.shop.ShopText;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -60,12 +63,16 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
     private EditBox priceUnits;
     private EditBox rank;
     private Button label;
+
+    @Nullable
+    private Button toLet;
+
     private boolean showLabel = true;
 
     public ShopConfigScreen(ShopConfigMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 176;
-        this.imageHeight = 216;
+        this.imageHeight = 236;
         this.inventoryLabelY = this.imageHeight - 94;
     }
 
@@ -100,8 +107,30 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
 
         this.addRenderableWidget(Button.builder(
                         Component.translatable("screen.ravencoin.shop.apply"), button -> this.apply())
-                .bounds(this.leftPos + 8, this.topPos + 96, 160, 18)
+                .bounds(this.leftPos + 8, this.topPos + 118, 160, 18)
                 .build());
+
+        // A market stall's goods live in a barrel on a claim its renter cannot
+        // open. This button is how they reach it, and the only way they can.
+        ShopBlockEntity stall = this.menu.shop();
+        if (stall != null && !stall.bottomless()) {
+            this.addRenderableWidget(Button.builder(
+                            Component.translatable("screen.ravencoin.shop.restock"),
+                            button -> PacketDistributor.sendToServer(
+                                    new ShopStallPayload(ShopStallPayload.Action.RESTOCK)))
+                    .bounds(this.leftPos + 8, this.topPos + 96, 78, 18)
+                    .build());
+        }
+        if (stall != null && stall.admin() && this.minecraft != null
+                && this.minecraft.player != null
+                && this.minecraft.player.hasPermissions(2)) {
+            this.toLet = Button.builder(this.toLetText(stall), button -> {
+                        PacketDistributor.sendToServer(new ShopStallPayload(ShopStallPayload.Action.TO_LET));
+                    })
+                    .bounds(this.leftPos + 90, this.topPos + 96, 78, 18)
+                    .build();
+            this.addRenderableWidget(this.toLet);
+        }
     }
 
     private EditBox numberField(int x, int y, int value, String key) {
@@ -111,6 +140,21 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         field.setValue(Integer.toString(value));
         this.addRenderableWidget(field);
         return field;
+    }
+
+    private Component toLetText(ShopBlockEntity stall) {
+        return Component.translatable(
+                stall.rentable() ? "screen.ravencoin.shop.to_let_on" : "screen.ravencoin.shop.to_let_off");
+    }
+
+    /** The market switch is the server's, not this screen's, so it follows the block. */
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        ShopBlockEntity stall = this.menu.shop();
+        if (this.toLet != null && stall != null) {
+            this.toLet.setMessage(this.toLetText(stall));
+        }
     }
 
     private Component labelText() {
@@ -181,7 +225,18 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
 
         ShopBlockEntity shop = this.menu.shop();
         if (shop != null) {
-            graphics.drawString(this.font, ShopText.stockOnPanel(shop), 8, 84, 0x555555, false);
+            Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 84, 100, 0x555555, false);
+            // What the trade count is made of. An owner restocking wants units,
+            // not "twelve trades" — twelve trades of what, sixteen at a time?
+            Labels.drawRight(
+                    graphics,
+                    this.font,
+                    Component.translatable(
+                            "screen.ravencoin.shop.units", Amounts.format(shop.unitsInStock())),
+                    168,
+                    84,
+                    56,
+                    0x555555);
         }
     }
 

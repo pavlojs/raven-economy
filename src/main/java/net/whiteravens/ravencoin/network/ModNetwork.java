@@ -34,8 +34,10 @@ import net.whiteravens.ravencoin.command.RankCommands;
 import net.whiteravens.ravencoin.menu.AtmMenu;
 import net.whiteravens.ravencoin.menu.ShopConfigMenu;
 import net.whiteravens.ravencoin.menu.ShopMenu;
+import net.whiteravens.ravencoin.menu.ShopMenuBase;
 import net.whiteravens.ravencoin.rank.RankPurchase;
 import net.whiteravens.ravencoin.rank.RankService;
+import net.whiteravens.ravencoin.shop.ShopResult;
 import net.whiteravens.ravencoin.shop.ShopText;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,6 +67,60 @@ public final class ModNetwork {
                 AtmRequestPayload.TYPE, AtmRequestPayload.STREAM_CODEC, ModNetwork::onAtmRequest);
         registrar.playToServer(
                 AtmRankBuyPayload.TYPE, AtmRankBuyPayload.STREAM_CODEC, ModNetwork::onAtmRankBuy);
+        registrar.playToServer(ShopStallPayload.TYPE, ShopStallPayload.STREAM_CODEC, ModNetwork::onShopStall);
+    }
+
+    /**
+     * Rents a stall, restocks one, or puts one on the market.
+     *
+     * <p>Three different permissions on one packet, checked here rather than
+     * trusted from the screen: renting is open to anyone standing at the
+     * counter, restocking is the renter's alone — it opens a container they are
+     * deliberately unable to open themselves — and putting a shop on the market
+     * is the operator's.
+     */
+    private static void onShopStall(ShopStallPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        ShopBlockEntity shop = openShop(player);
+        if (shop == null) {
+            return;
+        }
+        switch (payload.action()) {
+            case RENT -> {
+                ShopResult result = shop.rent(player);
+                player.sendSystemMessage(result == ShopResult.OK
+                        ? Component.translatable("screen.ravencoin.shop.rent.taken")
+                        : Component.translatable(ShopText.errorKey(result)).withStyle(ChatFormatting.RED));
+                if (result == ShopResult.OK) {
+                    // Straight into the settings, because a stall that sells
+                    // nothing is what they have just paid for.
+                    shop.openSettings(player);
+                }
+            }
+            case RESTOCK -> {
+                if (shop.mayConfigure(player) && !shop.openStock(player)) {
+                    player.sendSystemMessage(
+                            Component.translatable("screen.ravencoin.shop.error.no_container")
+                                    .withStyle(ChatFormatting.RED));
+                }
+            }
+            case TO_LET -> {
+                if (player.hasPermissions(2) && shop.admin()) {
+                    shop.setRentable(!shop.rentable());
+                }
+            }
+        }
+    }
+
+    /** {@return the shop whose buying or settings screen the sender has open, or null} */
+    @Nullable
+    private static ShopBlockEntity openShop(ServerPlayer player) {
+        if (player.containerMenu instanceof ShopMenuBase menu && menu.stillValid(player)) {
+            return menu.shop();
+        }
+        return null;
     }
 
     /** Pays another player from the ATM's transfer page. */
