@@ -117,18 +117,20 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
 
         // A market stall's goods live in a barrel on a claim its renter cannot
         // open. This button is how they reach it, and the only way they can.
-        // A market stall's goods live in a barrel on a claim its renter cannot
-        // open. This button is how they reach it, and the only way they can.
+        // Built whether or not it is wanted yet, and shown from containerTick.
+        // Deciding this once, here, is how a renter ended up without it: renting
+        // opens this screen, and the block entity saying who the stall now
+        // belongs to arrives a packet later — so the one player who needs the
+        // button had it decided against them a tick before the answer came.
         ShopBlockEntity stall = this.menu.shop();
-        if (stall != null && !stall.bottomless()) {
-            this.restock = Button.builder(
-                            Component.translatable("screen.ravencoin.shop.restock"),
-                            button -> PacketDistributor.sendToServer(
-                                    new ShopStallPayload(ShopStallPayload.Action.RESTOCK)))
-                    .bounds(this.leftPos + 8, this.topPos + 96, 78, 18)
-                    .build();
-            this.addRenderableWidget(this.restock);
-        }
+        this.restock = Button.builder(
+                        Component.translatable("screen.ravencoin.shop.restock"),
+                        button -> PacketDistributor.sendToServer(
+                                new ShopStallPayload(ShopStallPayload.Action.RESTOCK)))
+                .bounds(this.leftPos + 8, this.topPos + 96, 78, 18)
+                .build();
+        this.restock.visible = stall != null && !stall.bottomless();
+        this.addRenderableWidget(this.restock);
         if (stall != null && stall.admin() && this.operator()) {
             this.toLet = Button.builder(this.toLetText(stall), button -> {
                         PacketDistributor.sendToServer(new ShopStallPayload(ShopStallPayload.Action.TO_LET));
@@ -165,6 +167,7 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         // owner who wants to sell their way out of a debt should be able to.
         // Only the goods are locked, and the button says which.
         if (this.restock != null && stall != null) {
+            this.restock.visible = !stall.bottomless();
             boolean locked = stall.closed() && !this.operator();
             this.restock.active = !locked;
             this.restock.setTooltip(
