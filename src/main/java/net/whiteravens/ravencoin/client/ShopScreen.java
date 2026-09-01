@@ -269,7 +269,7 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
                     Component.translatable(
                             "screen.ravencoin.shop.rent.terms",
                             Amounts.format(shop.quotedRent()),
-                            shop.quotedDays()),
+                            ShopText.period(shop.quotedDays())),
                     8,
                     36,
                     160,

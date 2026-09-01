@@ -63,6 +63,20 @@ public final class ShopText {
         return Component.translatable("screen.ravencoin.shop.units", Amounts.format(units));
     }
 
+    /**
+     * {@return the rent period, worded for the number of days in it}
+     *
+     * <p>Two forms, not a number and a fixed word. "1 dni" is not Polish, and
+     * the default period is seven days, so the wrong form only ever shows up on
+     * a server that changed the setting — which is exactly the server nobody is
+     * watching.
+     */
+    public static Component period(int days) {
+        return days == 1
+                ? Component.translatable("screen.ravencoin.shop.rent.period.one")
+                : Component.translatable("screen.ravencoin.shop.rent.period.many", Amounts.format(days));
+    }
+
     /** {@return what the sign over a shop says, top line first} */
     public static List<Component> label(ShopBlockEntity shop) {
         List<Component> lines = new ArrayList<>(3);
