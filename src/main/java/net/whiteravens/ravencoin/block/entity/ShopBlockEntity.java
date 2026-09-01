@@ -357,14 +357,18 @@ public class ShopBlockEntity extends BlockEntity {
     }
 
     /**
-     * Ends a rental that was never paid up.
+     * Ends a rental and puts the stall straight back on the market.
      *
-     * <p>The stock is deliberately left in the container. Scattering somebody's
-     * goods on the floor of a server claim while they are offline is how a
-     * feature meant to be a market becomes a way to lose a chest, and an
-     * operator emptying a barrel by hand is a cheap alternative.
+     * <p><b>The stock is destroyed.</b> The alternative — leaving it for an
+     * operator to deal with — makes every lapsed rental a ticket somebody has to
+     * answer before the stall can be let again, and on a market of any size that
+     * is the whole feature turned into a chore. The grace period is the warning:
+     * a shut stall keeps its goods for as long as the config says, and the
+     * renter is told the stall is shut every time they open it. Ending a rental
+     * by hand says the same thing on the button.
      */
     private void evict() {
+        this.emptyOut();
         this.owner = null;
         this.ownerName = "";
         this.rentPaidUntil = 0;
@@ -377,6 +381,17 @@ public class ShopBlockEntity extends BlockEntity {
         this.priceUnits = 1;
         this.requiredRank = "";
         this.setChangedAndSync();
+    }
+
+    /** Empties the container beside this shop, keeping nothing. */
+    private void emptyOut() {
+        IItemHandler barrel = this.barrel();
+        if (barrel == null) {
+            return;
+        }
+        for (int slot = 0; slot < barrel.getSlots(); slot++) {
+            barrel.extractItem(slot, Integer.MAX_VALUE, false);
+        }
     }
 
     /** Marks a server shop as a stall, or takes it off the market. */
