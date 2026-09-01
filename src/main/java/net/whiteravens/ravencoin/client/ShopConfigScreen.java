@@ -15,6 +15,7 @@
  */
 package net.whiteravens.ravencoin.client;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -240,7 +241,22 @@ public class ShopConfigScreen extends AbstractContainerScreen<ShopConfigMenu> {
         graphics.drawString(this.font, Component.translatable("screen.ravencoin.shop.rank"), 8, 52, 0x404040, false);
 
         ShopBlockEntity shop = this.menu.shop();
-        if (shop != null) {
+        if (shop != null && shop.closed()) {
+            // The whole width, and no unit count beside it. What a shut stall's
+            // owner needs off this line is why it is shut; the count is still
+            // one button away and does not have to share 100 pixels with a
+            // sentence that needs 155.
+            Labels.draw(
+                    graphics,
+                    this.font,
+                    Component.translatable("screen.ravencoin.shop.error.closed")
+                            .withStyle(ChatFormatting.DARK_RED),
+                    8,
+                    84,
+                    160,
+                    0x555555,
+                    false);
+        } else if (shop != null) {
             Labels.draw(graphics, this.font, ShopText.stockOnPanel(shop), 8, 84, 100, 0x555555, false);
             // What the trade count is made of. An owner restocking wants units,
             // not "twelve trades" — twelve trades of what, sixteen at a time?

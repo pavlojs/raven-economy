@@ -73,6 +73,9 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
     /** Gold dark enough to stay gold against a #C6C6C6 panel. */
     private static final int COIN_INK = 0x8A6A00;
 
+    /** The panel's own grey, for painting out the two slot frames baked into it. */
+    private static final int PANEL = 0xFFC6C6C6;
+
     /**
      * Which purse the buyer is spending from.
      *
@@ -221,10 +224,27 @@ public class ShopScreen extends AbstractContainerScreen<ShopMenu> {
         graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
 
         ShopBlockEntity shop = this.menu.shop();
+        if (shop != null && shop.toLet()) {
+            // The two sockets are painted into the panel texture, and this page
+            // is an advertisement rather than a counter: without this the rent
+            // is written across two empty slots that mean nothing here.
+            this.blank(graphics, PRODUCT_SLOT_X);
+            this.blank(graphics, PRICE_SLOT_X);
+            return;
+        }
         if (shop != null && shop.configured()) {
             graphics.renderItem(shop.product(), this.leftPos + PRODUCT_SLOT_X + 1, this.topPos + SLOT_Y + 1);
             graphics.renderItem(shop.price(), this.leftPos + PRICE_SLOT_X + 1, this.topPos + SLOT_Y + 1);
         }
+    }
+
+    private void blank(GuiGraphics graphics, int slotX) {
+        graphics.fill(
+                this.leftPos + slotX,
+                this.topPos + SLOT_Y,
+                this.leftPos + slotX + SLOT_SIZE,
+                this.topPos + SLOT_Y + SLOT_SIZE,
+                PANEL);
     }
 
     @Override
