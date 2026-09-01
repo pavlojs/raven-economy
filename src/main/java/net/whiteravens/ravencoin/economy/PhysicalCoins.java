@@ -15,6 +15,7 @@
  */
 package net.whiteravens.ravencoin.economy;
 
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -31,11 +32,17 @@ public final class PhysicalCoins {
     /** A block of RavenCoin is worth this many coins. Nine, as with every vanilla ingot. */
     public static final int BLOCK_VALUE = 9;
 
-    /** {@return the value of every coin and coin block this player is carrying} */
-    public static long carried(Inventory inventory) {
+    /**
+     * {@return the value of every coin and coin block in this container}
+     *
+     * <p>Takes a {@link Container} rather than an {@link Inventory} so the
+     * same weighing works on an ender chest, which is where a player who has
+     * to walk to the bank keeps their money.
+     */
+    public static long carried(Container container) {
         long total = 0;
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack stack = container.getItem(slot);
             if (stack.is(ModItems.COIN.get())) {
                 total += stack.getCount();
             } else if (stack.is(ModItems.COIN_BLOCK.get())) {

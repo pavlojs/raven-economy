@@ -76,8 +76,8 @@
   "screen.ravencoin.shop.rank": "Wymagana ranga",
   "screen.ravencoin.shop.rank_hint": "brak",
   "screen.ravencoin.shop.pick_hint": "Kliknij z przedmiotem w ręce, aby ustawić",
-  "screen.ravencoin.shop.label_on": "Etykieta: wl.",
-  "screen.ravencoin.shop.label_off": "Etykieta: wyl.",
+  "screen.ravencoin.shop.label_on": "Etykieta: wł.",
+  "screen.ravencoin.shop.label_off": "Etykieta: wył.",
   "screen.ravencoin.shop.apply": "Zapisz",
   "screen.ravencoin.shop.error.not_set_up": "Ten sklep nie został jeszcze ustawiony",
   "screen.ravencoin.shop.error.no_container": "Ten sklep nie ma pojemnika, z którego miałby sprzedawać",
@@ -86,5 +86,14 @@
   "screen.ravencoin.shop.error.cannot_pay": "Nie stać cię na to",
   "screen.ravencoin.shop.error.no_room": "Brak miejsca w ekwipunku na ten towar",
   "screen.ravencoin.shop.error.rank_required": "Ten sklep jest zarezerwowany dla innej rangi",
-  "screen.ravencoin.shop.error.disabled": "Sklepy są na tym serwerze wyłączone"
+  "screen.ravencoin.shop.error.disabled": "Sklepy są na tym serwerze wyłączone",
+  "commands.ravencoin.eco.total.header": "Podaż pieniądza",
+  "commands.ravencoin.eco.total.banked": "  Na kontach  %s RC na %s kontach",
+  "commands.ravencoin.eco.total.carried": "  Przy sobie  %s RC (%s online, %s offline)",
+  "commands.ravencoin.eco.total.sum": "  Razem       %s RC",
+  "commands.ravencoin.eco.total.largest": "  Najwięcej   %s ma %s RC, czyli %s%% całości",
+  "commands.ravencoin.eco.total.uncounted": "Monety w skrzyniach, szufladach, maszynach i shulkerach nie są liczone. To dolna granica.",
+  "commands.ravencoin.eco.total.unreadable": "Nie udało się odczytać %s plików graczy — sprawdź log serwera",
+  "commands.ravencoin.eco.total.concentrated": "Jeden gracz ma ponad połowę pieniędzy. Sprawdź, czy skup nie został zautomatyzowany.",
+  "commands.ravencoin.eco.worth": "%s jest wart %s RC - %s na koncie, %s przy sobie"
 }

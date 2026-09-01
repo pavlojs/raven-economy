@@ -24,6 +24,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import java.util.Collection;
 import java.util.List;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -38,6 +39,8 @@ import net.whiteravens.ravencoin.config.RavenCoinConfig;
 import net.whiteravens.ravencoin.economy.Account;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.EconomyService;
+import net.whiteravens.ravencoin.economy.Holding;
+import net.whiteravens.ravencoin.economy.MoneyCensus;
 import net.whiteravens.ravencoin.economy.TransactionResult;
 
 /**
@@ -56,6 +59,9 @@ import net.whiteravens.ravencoin.economy.TransactionResult;
 @EventBusSubscriber(modid = RavenCoin.MOD_ID)
 public final class EconomyCommands {
     private static final int LEADERBOARD_SIZE = 10;
+
+    /** The share of the money one player has to pass before it is worth investigating. */
+    private static final int HALF = 50;
 
     private static final SimpleCommandExceptionType ERROR_ONE_PLAYER =
             new SimpleCommandExceptionType(Component.translatable("commands.ravencoin.error.one_player"));
@@ -197,7 +203,96 @@ public final class EconomyCommands {
                                                             Amounts.format(balance)),
                                                     false);
                                     return (int) Math.min(balance, Integer.MAX_VALUE);
-                                })));
+                                })))
+                .then(total())
+                .then(worth());
+    }
+
+    /**
+     * The money supply, and how much of it one player is sitting on.
+     *
+     * <p>Both numbers on one command because they come out of one census, and
+     * the census reads a file per offline account — running it twice to print
+     * two halves of the same answer would double the only expensive part.
+     */
+    private static LiteralArgumentBuilder<CommandSourceStack> total() {
+        return Commands.literal("total").executes(ctx -> {
+            MoneyCensus census = MoneyCensus.take(server(ctx));
+            CommandSourceStack source = ctx.getSource();
+
+            source.sendSuccess(() -> Component.translatable("commands.ravencoin.eco.total.header"), false);
+            source.sendSuccess(
+                    () -> Component.translatable(
+                            "commands.ravencoin.eco.total.banked",
+                            Amounts.format(census.banked()),
+                            census.accounts()),
+                    false);
+            source.sendSuccess(
+                    () -> Component.translatable(
+                            "commands.ravencoin.eco.total.carried",
+                            Amounts.format(census.carried()),
+                            census.online(),
+                            census.offline()),
+                    false);
+            source.sendSuccess(
+                    () -> Component.translatable(
+                            "commands.ravencoin.eco.total.sum", Amounts.format(census.total())),
+                    false);
+            census.largest()
+                    .ifPresent(largest -> source.sendSuccess(
+                            () -> Component.translatable(
+                                    "commands.ravencoin.eco.total.largest",
+                                    largest.name(),
+                                    Amounts.format(largest.total()),
+                                    census.concentration()),
+                            false));
+            source.sendSuccess(
+                    () -> Component.translatable("commands.ravencoin.eco.total.uncounted")
+                            .withStyle(ChatFormatting.DARK_GRAY),
+                    false);
+            if (census.unreadable() > 0) {
+                source.sendSuccess(
+                        () -> Component.translatable(
+                                        "commands.ravencoin.eco.total.unreadable", census.unreadable())
+                                .withStyle(ChatFormatting.RED),
+                        false);
+            }
+            if (census.concentration() > HALF) {
+                source.sendSuccess(
+                        () -> Component.translatable("commands.ravencoin.eco.total.concentrated")
+                                .withStyle(ChatFormatting.GOLD),
+                        false);
+            }
+            return (int) Math.min(census.total(), Integer.MAX_VALUE);
+        });
+    }
+
+    /**
+     * One player's whole position.
+     *
+     * <p>Separate from {@code balance}, which reads the ledger and nothing else.
+     * With the bank at spawn most of a player's money is in their pockets, so
+     * the ledger on its own decides nothing — least of all who ends a season
+     * richest.
+     */
+    private static LiteralArgumentBuilder<CommandSourceStack> worth() {
+        return Commands.literal("worth")
+                .then(Commands.argument("player", GameProfileArgument.gameProfile())
+                        .executes(ctx -> {
+                            GameProfile target = singleProfile(ctx);
+                            Holding holding =
+                                    MoneyCensus.of(server(ctx), target.getId(), target.getName());
+                            ctx.getSource()
+                                    .sendSuccess(
+                                            () -> Component.translatable(
+                                                    "commands.ravencoin.eco.worth",
+                                                    holding.name(),
+                                                    Amounts.format(holding.total()),
+                                                    Amounts.format(holding.banked()),
+                                                    Amounts.format(holding.carried())),
+                                            false);
+                            return (int) Math.min(holding.total(), Integer.MAX_VALUE);
+                        }));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> ecoAction(String name, long minimum, EcoAction action) {

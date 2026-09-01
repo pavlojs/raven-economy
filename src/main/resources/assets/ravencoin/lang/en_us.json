@@ -86,5 +86,14 @@
   "screen.ravencoin.shop.error.cannot_pay": "You cannot afford that",
   "screen.ravencoin.shop.error.no_room": "No room in your inventory for that",
   "screen.ravencoin.shop.error.rank_required": "This shop is reserved for another rank",
-  "screen.ravencoin.shop.error.disabled": "Shops are switched off on this server"
+  "screen.ravencoin.shop.error.disabled": "Shops are switched off on this server",
+  "commands.ravencoin.eco.total.header": "Money supply",
+  "commands.ravencoin.eco.total.banked": "  Banked   %s RC across %s accounts",
+  "commands.ravencoin.eco.total.carried": "  Carried  %s RC (%s online, %s offline)",
+  "commands.ravencoin.eco.total.sum": "  Total    %s RC",
+  "commands.ravencoin.eco.total.largest": "  Largest  %s, holding %s RC — %s%% of it",
+  "commands.ravencoin.eco.total.uncounted": "Coins in chests, drawers, machines and shulker boxes are not counted. This is a floor.",
+  "commands.ravencoin.eco.total.unreadable": "%s player files could not be read — see the server log",
+  "commands.ravencoin.eco.total.concentrated": "One player holds over half the money. Check whether a buy-back has been automated.",
+  "commands.ravencoin.eco.worth": "%s is worth %s RC — %s banked, %s carried"
 }

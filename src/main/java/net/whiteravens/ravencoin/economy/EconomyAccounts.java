@@ -16,6 +16,7 @@
 package net.whiteravens.ravencoin.economy;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -102,6 +103,11 @@ public final class EconomyAccounts extends SavedData {
                         .thenComparing(Account::name))
                 .limit(limit)
                 .toList();
+    }
+
+    /** {@return every account, in no particular order} */
+    public Collection<Account> all() {
+        return this.accounts.values();
     }
 
     /** {@return how many accounts exist} */
