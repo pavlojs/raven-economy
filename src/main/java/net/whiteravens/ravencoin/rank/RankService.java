@@ -25,11 +25,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.whiteravens.ravencoin.RavenCoin;
 import net.whiteravens.ravencoin.config.RavenCoinConfig;
 import net.whiteravens.ravencoin.economy.Amounts;
 import net.whiteravens.ravencoin.economy.EconomyService;
 import net.whiteravens.ravencoin.economy.TransactionResult;
+import net.whiteravens.ravencoin.network.AtmPages;
+import net.whiteravens.ravencoin.network.Page;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -150,6 +153,17 @@ public final class RankService {
         CompletableFuture<Void> unused = LuckPermsBridge.grant(playerId, rank.group())
                 .whenComplete((ignored, failure) -> {
                     if (failure == null) {
+                        // The list the buyer is looking at was drawn before this
+                        // ran, so it still offers the rank they have just bought.
+                        // Sending it again on the way in is what the caller
+                        // already does, and it is a packet too early — the grant
+                        // is what makes owns() true, and this is when it is.
+                        server.execute(() -> {
+                            ServerPlayer viewer = server.getPlayerList().getPlayer(playerId);
+                            if (viewer != null) {
+                                PacketDistributor.sendToPlayer(viewer, AtmPages.build(viewer, Page.RANKS));
+                            }
+                        });
                         return;
                     }
                     RavenCoin.LOG.error("Granting {} to {} failed — refunding", rank.group(), playerName, failure);
