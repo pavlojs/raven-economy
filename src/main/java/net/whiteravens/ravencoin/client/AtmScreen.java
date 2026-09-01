@@ -96,6 +96,9 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
     /** How many lines a notice may wrap onto. Two is what fits above the footer. */
     private static final int NOTICE_LINES = 2;
 
+    /** How many a lone row on an otherwise empty page may take. It has the page. */
+    private static final int NOTICE_ROW_LINES = 3;
+
     /** The gap between wrapped notice lines: the font's own height plus a pixel. */
     private static final int NOTICE_PITCH = 10;
 
@@ -444,6 +447,20 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
         for (int i = 0; i < count; i++) {
             AtmListPayload.Row row = this.rows.get(from + i);
             int y = Math.round((CONTENT_TOP + i * pitch + textOffset) / scale);
+            // A page whose only row carries no number is not a table, it is a
+            // sentence — "Brak wtyczki uprawnień, więc rangi nie mają jak zostać
+            // nadane" is 300px, and clipped to "Brak wtyczki uprawnień, więc…"
+            // it stops exactly before the part that says what to do. Given the
+            // whole panel and two lines, it fits.
+            if (this.rows.size() == 1 && row.detail().getString().isEmpty()) {
+                int room = Math.round(DETAIL_RIGHT / scale) - labelX;
+                List<FormattedCharSequence> wrapped = this.font.split(row.label(), room);
+                for (int line = 0; line < Math.min(wrapped.size(), NOTICE_ROW_LINES); line++) {
+                    graphics.drawString(
+                            this.font, wrapped.get(line), labelX, y + line * NOTICE_PITCH, 0x404040, false);
+                }
+                continue;
+            }
             int right = Math.round((row.actionable() ? DETAIL_RIGHT_WITH_BUTTON : DETAIL_RIGHT) / scale);
             // The right-hand half is measured first and takes what it needs, up
             // to leaving the label a readable stub. It is the half that carries
