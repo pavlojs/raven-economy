@@ -498,11 +498,12 @@ public class ShopBlockEntity extends BlockEntity {
      * however many of those all agree on. A half-finished trade is the one
      * outcome this must never produce, because the halves are somebody's money.
      */
-    // `till` is null only for an admin shop, and every line that touches it is
-    // behind `admin() ? … : …` or `if (!admin())`, with the guard below turning a
-    // missing container into NO_CONTAINER for every other shop. admin() reads the
-    // block at this position and cannot change while this runs. The invariant is
-    // real; it just spans a method call, which is further than the analyser sees.
+    // `till` is null only for a bottomless shop, and every line that touches it
+    // is behind `bottomless() ? … : …` or `if (!bottomless())`, with the guard
+    // below turning a missing container into NO_CONTAINER for every other shop.
+    // bottomless() reads the block and the owner field and cannot change while
+    // this runs. The invariant is real; it just spans a method call, which is
+    // further than the analyser sees.
     @SuppressWarnings("NullAway")
     public Outcome buy(ServerPlayer buyer, int wanted, boolean fromAccount) {
         if (!RavenCoinConfig.COMMON.shopsEnabled.get()) {

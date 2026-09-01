@@ -98,7 +98,11 @@ public final class ShopText {
 
     private static Component stock(
             ShopBlockEntity shop, ChatFormatting unlimited, ChatFormatting problem, ChatFormatting count) {
-        if (shop.admin()) {
+        // bottomless(), not admin(): a rented stall stands on a server block
+        // and sells a real player's real goods, and "always in stock" over a
+        // barrel with twelve diamonds in it is the one lie a shop sign must
+        // never tell. It is also the count the stall feature exists to show.
+        if (shop.bottomless()) {
             return Component.translatable("screen.ravencoin.shop.unlimited").withStyle(unlimited);
         }
         if (!shop.hasContainer()) {
