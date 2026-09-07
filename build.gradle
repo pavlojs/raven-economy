@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.144'
-    id 'net.ltgt.errorprone' version '5.1.0'
+    id 'net.ltgt.errorprone' version '5.1.1'
 }
 
 version = mod_version
