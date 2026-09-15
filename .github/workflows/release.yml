@@ -12,6 +12,7 @@
 #   ravencoin-<mc>-<version>.jar           the mod
 #   ravencoin-<mc>-<version>-sources.jar   sources, per Apache-2.0 good manners
 #   SHA256SUMS.txt                         checksums over both
+#   ravencoin-<mc>-<version>.sigstore.json   provenance attestation bundle
 #
 # The release is created as a DRAFT, so the jar can be checked before anyone can
 # download it. A version containing -alpha, -beta or -rc is additionally marked
@@ -107,6 +108,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # sign the provenance attestation
+      attestations: write # record it
 
     steps:
       - uses: actions/checkout@v7
@@ -129,6 +132,22 @@ jobs:
           sha256sum ./*.jar > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # SLSA build provenance for both jars, signed through Sigstore. The bundle
+      # ships with the release. Verify with:
+      #   gh attestation verify <jar> --repo pavlojs/raven-economy
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: build/libs/*.jar
+
+      - name: Keep the attestation bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          MC: ${{ needs.check.outputs.mc }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: cp "$BUNDLE" "build/libs/ravencoin-$MC-$VERSION.sigstore.json"
+
       - name: Create the draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -140,4 +159,4 @@ jobs:
           if [ "${{ needs.check.outputs.prerelease }}" = "true" ]; then
             args+=(--prerelease)
           fi
-          gh release create "$TAG" "${args[@]}" build/libs/*.jar build/libs/SHA256SUMS.txt
+          gh release create "$TAG" "${args[@]}" build/libs/*.jar build/libs/SHA256SUMS.txt build/libs/*.sigstore.json
