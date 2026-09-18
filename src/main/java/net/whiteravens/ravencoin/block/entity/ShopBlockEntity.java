@@ -113,8 +113,8 @@ public class ShopBlockEntity extends BlockEntity {
     /** When the rent runs out, in epoch milliseconds. Zero when nobody rents this. */
     private long rentPaidUntil;
 
-    /** When the rent first could not be taken, or zero while it is paid up. */
-    private long arrearsSince;
+    /** Whether the rent this stall last owed went unpaid. */
+    private boolean inArrears;
 
     /** Whether this stall is on the market with an empty container behind it. */
     private boolean stallReady;
@@ -177,7 +177,7 @@ public class ShopBlockEntity extends BlockEntity {
      * stock is exactly where it was left.
      */
     public boolean closed() {
-        return this.rented() && this.arrearsSince != 0;
+        return this.rented() && this.inArrears;
     }
 
     /** {@return whether a stall is on the market and its container is empty} */
@@ -314,7 +314,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.owner = player.getUUID();
         this.ownerName = player.getGameProfile().getName();
         this.rentPaidUntil = System.currentTimeMillis() + periodMillis();
-        this.arrearsSince = 0;
+        this.inArrears = false;
         this.setChangedAndSync();
         return ShopResult.OK;
     }
@@ -326,6 +326,21 @@ public class ShopBlockEntity extends BlockEntity {
      * because the reason it failed is usually an empty account and the fix is
      * usually the renter putting money in it. Paying up reopens the stall with
      * its stock where it was left.
+     *
+     * <p><b>Falling behind is measured off the clock, never off when anyone
+     * looked.</b> This runs from a block entity ticker, so it only runs while
+     * the chunk is loaded — and stamping the moment of the first failed
+     * withdrawal started the grace period when somebody next walked past, not
+     * when the rent was actually missed. A stall left alone for a month then
+     * got its seven days from the day it was noticed, and one nobody ever
+     * visited kept its lease for good. Counting from {@code rentPaidUntil}
+     * makes the deadline a fact about the rental, and the first person to come
+     * near an overdue stall frees it on the spot — which is the moment somebody
+     * wants it.
+     *
+     * <p>Losing the stall still follows a payment that was tried and failed,
+     * never the calendar alone: a rental nobody could charge for a month is one
+     * the renter was never asked about, and they may well be good for it.
      */
     private void chargeRent(MinecraftServer server) {
         UUID renter = this.owner;
@@ -342,17 +357,21 @@ public class ShopBlockEntity extends BlockEntity {
                 EconomyService.note(server, renter, LedgerEntry.Kind.RENT, price, "");
             }
             this.rentPaidUntil = now + periodMillis();
-            this.arrearsSince = 0;
+            this.inArrears = false;
             this.setChangedAndSync();
             return;
         }
-        if (this.arrearsSince == 0) {
-            this.arrearsSince = now;
-            this.setChangedAndSync();
-            return;
-        }
-        if (now - this.arrearsSince >= graceMillis()) {
+        this.fallBehind();
+        if (now - this.rentPaidUntil >= graceMillis()) {
             this.evict();
+        }
+    }
+
+    /** Shuts the stall on the first period it owes, and says so once. */
+    private void fallBehind() {
+        if (!this.inArrears) {
+            this.inArrears = true;
+            this.setChangedAndSync();
         }
     }
 
@@ -372,7 +391,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.owner = null;
         this.ownerName = "";
         this.rentPaidUntil = 0;
-        this.arrearsSince = 0;
+        this.inArrears = false;
         // The next renter starts from an empty counter rather than inheriting a
         // price somebody else set.
         this.product = ItemStack.EMPTY;
@@ -871,7 +890,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.quotedRent = tag.getLong("RentPrice");
         this.quotedDays = tag.getInt("RentDays");
         this.rentPaidUntil = tag.getLong("RentPaidUntil");
-        this.arrearsSince = tag.getLong("ArrearsSince");
+        this.inArrears = tag.getBoolean("Arrears");
         this.stallReady = tag.getBoolean("StallReady");
         // from3DDataValue rather than values()[…]: this byte comes off disk, and a
         // corrupt or hand-edited one indexed straight into the array throws while
@@ -900,7 +919,7 @@ public class ShopBlockEntity extends BlockEntity {
         tag.putLong("RentPrice", rentPrice());
         tag.putInt("RentDays", RavenCoinConfig.COMMON.rentDays.get());
         tag.putLong("RentPaidUntil", this.rentPaidUntil);
-        tag.putLong("ArrearsSince", this.arrearsSince);
+        tag.putBoolean("Arrears", this.inArrears);
         tag.putBoolean("StallReady", this.stallReady);
         if (this.stockSide != null) {
             tag.putByte("StockSide", (byte) this.stockSide.get3DDataValue());
