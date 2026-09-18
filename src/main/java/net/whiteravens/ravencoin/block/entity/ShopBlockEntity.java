@@ -15,7 +15,11 @@
  */
 package net.whiteravens.ravencoin.block.entity;
 
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -83,6 +87,16 @@ public class ShopBlockEntity extends BlockEntity {
     /** Stock is recounted this often. Once a second is faster than a chest realistically empties. */
     private static final int RECOUNT_TICKS = 20;
 
+    /**
+     * Every stall currently loaded, so one can see the others its owner holds.
+     *
+     * <p>Held weakly and cleared on removal: this exists only to order rent
+     * payments between stalls that are ticking anyway, and it must never be the
+     * reason a block entity or a level stays reachable.
+     */
+    private static final Set<ShopBlockEntity> LOADED =
+            Collections.newSetFromMap(new WeakHashMap<>());
+
     /** How often rent is looked at. Thirty seconds, against a period measured in days. */
     private static final int RENT_TICKS = 600;
 
@@ -112,6 +126,14 @@ public class ShopBlockEntity extends BlockEntity {
 
     /** When the rent runs out, in epoch milliseconds. Zero when nobody rents this. */
     private long rentPaidUntil;
+
+    /**
+     * When this rental began, in epoch milliseconds. Zero when nobody rents this.
+     *
+     * <p>Its only job is to order payments. When a player cannot cover every
+     * stall they hold, the oldest lease is the one that gets the money.
+     */
+    private long rentedSince;
 
     /** Whether the rent this stall last owed went unpaid. */
     private boolean inArrears;
@@ -313,7 +335,9 @@ public class ShopBlockEntity extends BlockEntity {
 
         this.owner = player.getUUID();
         this.ownerName = player.getGameProfile().getName();
-        this.rentPaidUntil = System.currentTimeMillis() + periodMillis();
+        long start = System.currentTimeMillis();
+        this.rentedSince = start;
+        this.rentPaidUntil = start + periodMillis();
         this.inArrears = false;
         this.setChangedAndSync();
         return ShopResult.OK;
@@ -348,6 +372,17 @@ public class ShopBlockEntity extends BlockEntity {
         if (renter == null || now < this.rentPaidUntil) {
             return;
         }
+
+        // Oldest lease first, so a younger stall waits its turn. The wait is
+        // bounded and cannot starve it: the older stall either pays, and stops
+        // being due, or fails and is evicted — either way this one is next.
+        // Waiting withholds the payment only. The stall is shut meanwhile and
+        // its deadline keeps running, so nothing sells for free.
+        if (olderStallAwaitsRent(now)) {
+            this.fallBehind();
+            return;
+        }
+
         long price = rentPrice();
         TransactionResult paid = price <= 0
                 ? TransactionResult.OK
@@ -361,6 +396,7 @@ public class ShopBlockEntity extends BlockEntity {
             this.setChangedAndSync();
             return;
         }
+
         this.fallBehind();
         if (now - this.rentPaidUntil >= graceMillis()) {
             this.evict();
@@ -373,6 +409,65 @@ public class ShopBlockEntity extends BlockEntity {
             this.inArrears = true;
             this.setChangedAndSync();
         }
+    }
+
+    /**
+     * {@return whether the same player holds an older stall whose rent is also
+     * waiting to be taken}
+     *
+     * <p>Each stall charges itself on its own tick, and block entities tick in
+     * whatever order their chunk happens to hold them. That was invisible until
+     * a player could not cover all of them: ten stalls fell due together, one
+     * tick took a thousand RavenCoin, three renewed and seven lapsed, and which
+     * three was decided by nothing the player could see, plan around or appeal.
+     *
+     * <p>So the money goes to the oldest lease first and a younger stall stands
+     * aside while an older one is still owed. Standing aside withholds only the
+     * payment: the stall is already marked in arrears by the caller, so it
+     * shuts, keeps running down its own grace period, and is evicted on time
+     * whether or not it ever got a turn.
+     *
+     * <p>Only loaded stalls are asked, which is exactly the set that can pay at
+     * all — an unloaded one does not tick. The set is built from this block
+     * entity's own load and removal hooks, holds its entries weakly, and is
+     * read through {@code isRemoved}, so nothing here can outlive the world it
+     * belongs to, or need saving.
+     */
+    private boolean olderStallAwaitsRent(long now) {
+        if (this.level == null) {
+            return false;
+        }
+        for (ShopBlockEntity other : LOADED) {
+            if (other.isRemoved() || other.level == null) {
+                continue;
+            }
+            // Same world, and not this stall. Compared by dimension key and
+            // position rather than by object identity: those are the two things
+            // that actually say "a different stall in the world I am in".
+            if (!other.level.dimension().equals(this.level.dimension())
+                    || other.worldPosition.equals(this.worldPosition)) {
+                continue;
+            }
+            if (!other.rented() || !Objects.equals(other.owner, this.owner)) {
+                continue;
+            }
+            if (other.rentedSince < this.rentedSince && now >= other.rentPaidUntil) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        LOADED.add(this);
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        LOADED.remove(this);
     }
 
     /**
@@ -391,6 +486,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.owner = null;
         this.ownerName = "";
         this.rentPaidUntil = 0;
+        this.rentedSince = 0;
         this.inArrears = false;
         // The next renter starts from an empty counter rather than inheriting a
         // price somebody else set.
@@ -890,6 +986,7 @@ public class ShopBlockEntity extends BlockEntity {
         this.quotedRent = tag.getLong("RentPrice");
         this.quotedDays = tag.getInt("RentDays");
         this.rentPaidUntil = tag.getLong("RentPaidUntil");
+        this.rentedSince = tag.getLong("RentedSince");
         this.inArrears = tag.getBoolean("Arrears");
         this.stallReady = tag.getBoolean("StallReady");
         // from3DDataValue rather than values()[…]: this byte comes off disk, and a
@@ -919,6 +1016,7 @@ public class ShopBlockEntity extends BlockEntity {
         tag.putLong("RentPrice", rentPrice());
         tag.putInt("RentDays", RavenCoinConfig.COMMON.rentDays.get());
         tag.putLong("RentPaidUntil", this.rentPaidUntil);
+        tag.putLong("RentedSince", this.rentedSince);
         tag.putBoolean("Arrears", this.inArrears);
         tag.putBoolean("StallReady", this.stallReady);
         if (this.stockSide != null) {
