@@ -41,7 +41,8 @@ money.
 
 - Bug fixes, especially anything where money or items can be lost, duplicated,
   or created out of nothing
-- Translations — a new `<locale>.json` alongside `en_us.json` and `pl_pl.json`
+- Translations — a new `<locale>.json` alongside `en_us.json` and `pl_pl.json`,
+  added to `shippedLanguages` in `build.gradle` once it is complete
 - Compatibility fixes for other mods in the pack's ecosystem
 - Performance work in the block-entity tick or the label renderer
 - Documentation
@@ -140,7 +141,7 @@ landed since the previous tag, grouped by [`.github/release.yml`](.github/releas
 
 ### Translations
 
-**Every language file must carry every key, and no key may be empty.**
+**Every language the jar carries must have every key, and no key may be empty.**
 
 This is enforced by `./gradlew checkTranslations`, which runs as part of
 `check`, which runs as part of `build`. It is not a style rule. The mod this one
@@ -149,8 +150,12 @@ was the reply to `/money` — so a Polish player asking their balance got a blan
 line and no way to tell whether the command had worked. A missing key at least
 falls back to English; an empty one is invisible breakage.
 
-A new user-facing string goes into **both** `en_us.json` and `pl_pl.json` in the
-same commit that introduces it.
+The languages the jar carries are listed in `shippedLanguages` in
+`build.gradle`. A translation still in progress can be committed: until its code
+is listed, it stays out of the jar, and only the keys it has are checked.
+
+A new user-facing string goes into the file of every shipped language
+(`en_us.json` and `pl_pl.json`) in the same commit that introduces it.
 
 ## Versions and Minecraft lines
 

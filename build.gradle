@@ -64,6 +64,13 @@ dependencies {
     errorprone 'com.uber.nullaway:nullaway:0.14.3'
 }
 
+/**
+ * The languages the jar carries, each with every key (checkTranslations fails
+ * the build otherwise). Another file in the lang folder can be a translation
+ * still in progress: it stays out of the jar until its code is added here.
+ */
+def shippedLanguages = ['en_us', 'pl_pl']
+
 // Expand gradle.properties into neoforge.mods.toml so the version lives in one
 // place. Everything else in that file is written by hand.
 tasks.named('processResources', ProcessResources).configure {
@@ -81,6 +88,13 @@ tasks.named('processResources', ProcessResources).configure {
     inputs.properties replacements
     filesMatching(['META-INF/neoforge.mods.toml']) {
         expand replacements
+    }
+
+    // A language that is not shipped stays out of the jar.
+    inputs.property 'shippedLanguages', shippedLanguages
+    exclude { element ->
+        element.path.startsWith('assets/ravencoin/lang/') &&
+            !shippedLanguages.contains(element.name - '.json')
     }
 }
 
@@ -123,18 +137,23 @@ java {
 }
 
 /**
- * Every language file must carry every key.
+ * Every shipped language must carry every key, and no language file may have an
+ * empty value.
  *
  * Not a style rule. The mod this one replaces shipped a Polish translation with
  * five empty strings, and one of them was the reply to `/money` — so a Polish
  * player asking their balance got a blank line and no way to tell whether the
  * command had worked. A missing key at least falls back to English and is
  * merely untranslated; an empty one is invisible breakage. This catches both,
- * and it runs in CI so it catches them before a player does.
+ * and it runs in CI so it catches them before a player does. A file that is not
+ * shipped can be a translation still in progress: it may lack keys, and what it
+ * has is checked like the rest.
  */
 tasks.register('checkTranslations') {
     def langDir = file('src/main/resources/assets/ravencoin/lang')
+    def shipped = shippedLanguages
     inputs.dir langDir
+    inputs.property 'shippedLanguages', shipped
     outputs.upToDateWhen { false }
 
     doLast {
@@ -144,11 +163,17 @@ tasks.register('checkTranslations') {
         def reference = parse(new File(langDir, 'en_us.json'))
         def problems = []
 
+        shipped.findAll { !new File(langDir, "${it}.json").exists() }.each {
+            problems << "${it}.json: shipped, but there is no such file"
+        }
+
         langDir.listFiles({ f -> f.name.endsWith('.json') } as FileFilter).each { f ->
             def entries = parse(f)
 
-            def missing = reference.keySet() - entries.keySet()
-            if (missing) problems << "${f.name}: missing ${missing.sort()}"
+            if ((f.name - '.json') in shipped) {
+                def missing = reference.keySet() - entries.keySet()
+                if (missing) problems << "${f.name}: missing ${missing.sort()}"
+            }
 
             def unknown = entries.keySet() - reference.keySet()
             if (unknown) problems << "${f.name}: not in en_us ${unknown.sort()}"
@@ -160,7 +185,7 @@ tasks.register('checkTranslations') {
         if (problems) {
             throw new GradleException("Translation files disagree:\n  " + problems.join('\n  '))
         }
-        logger.lifecycle("translations: ${langDir.listFiles().length} languages, ${reference.size()} keys, all complete")
+        logger.lifecycle("translations: ${shipped.size()} shipped of ${langDir.listFiles().length} files, ${reference.size()} keys")
     }
 }
 

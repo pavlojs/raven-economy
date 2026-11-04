@@ -143,8 +143,8 @@ src/main/resources/META-INF/               neoforge.mods.toml
 src/main/resources/assets/ravencoin/lang/  pl_pl and en_us, both complete
 ```
 
-Both language files are kept complete from the first commit, and CI fails if
-they disagree. The mod this replaces shipped a Polish translation with five
+Every language the jar carries is complete from the first commit, and CI fails
+if one of them misses a key or any language file has an empty one. The mod this replaces shipped a Polish translation with five
 empty strings, so `/money` printed nothing at all to a Polish player. That is the
 bar to clear.
 
