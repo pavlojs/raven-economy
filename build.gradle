@@ -138,7 +138,7 @@ java {
 
 /**
  * Every shipped language must carry every key, and no language file may have an
- * empty value.
+ * empty value or other arguments than English.
  *
  * Not a style rule. The mod this one replaces shipped a Polish translation with
  * five empty strings, and one of them was the reply to `/money` — so a Polish
@@ -160,6 +160,20 @@ tasks.register('checkTranslations') {
         def parse = { f ->
             new groovy.json.JsonSlurper().parse(f, 'UTF-8') as Map
         }
+        // The arguments a text takes, as Minecraft numbers them: `%s` counts up,
+        // `%2$s` names its own, `%%` is a percent sign. A translation may move
+        // them around, but a lost or an extra one breaks the line in game.
+        def argumentPattern = ~'%(?:(\\d+)\\$)?([A-Za-z%])'
+        def arguments = { String text ->
+            def found = [] as Set
+            int next = 1
+            def matcher = argumentPattern.matcher(text)
+            while (matcher.find()) {
+                if (matcher.group(2) == '%') continue
+                found << (matcher.group(1) ? (matcher.group(1) as int) : next++)
+            }
+            found
+        }
         def reference = parse(new File(langDir, 'en_us.json'))
         def problems = []
 
@@ -180,6 +194,11 @@ tasks.register('checkTranslations') {
 
             def blank = entries.findAll { k, v -> !(v as String)?.trim() }.keySet()
             if (blank) problems << "${f.name}: empty ${blank.sort()}"
+
+            def moved = entries.findAll { k, v ->
+                reference.containsKey(k) && arguments(v as String) != arguments(reference[k] as String)
+            }.keySet()
+            if (moved) problems << "${f.name}: other arguments than en_us ${moved.sort()}"
         }
 
         if (problems) {

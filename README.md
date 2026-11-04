@@ -144,7 +144,8 @@ src/main/resources/assets/ravencoin/lang/  pl_pl and en_us, both complete
 ```
 
 Every language the jar carries is complete from the first commit, and CI fails
-if one of them misses a key or any language file has an empty one. The mod this replaces shipped a Polish translation with five
+if one of them misses a key or any language file has an empty one or other
+arguments than English. The mod this replaces shipped a Polish translation with five
 empty strings, so `/money` printed nothing at all to a Polish player. That is the
 bar to clear.
 

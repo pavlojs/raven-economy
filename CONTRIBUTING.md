@@ -141,7 +141,8 @@ landed since the previous tag, grouped by [`.github/release.yml`](.github/releas
 
 ### Translations
 
-**Every language the jar carries must have every key, and no key may be empty.**
+**Every language the jar carries must have every key, and no key may be empty or
+take other arguments (`%s`, `%2$s`) than in English.**
 
 This is enforced by `./gradlew checkTranslations`, which runs as part of
 `check`, which runs as part of `build`. It is not a style rule. The mod this one
