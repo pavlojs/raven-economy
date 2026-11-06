@@ -60,7 +60,7 @@ dependencies {
     // catch instead of a silently swallowed chat message.
     compileOnly 'net.luckperms:api:5.5'
 
-    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+    errorprone 'com.google.errorprone:error_prone_core:2.51.0'
     errorprone 'com.uber.nullaway:nullaway:0.14.3'
 }
 
