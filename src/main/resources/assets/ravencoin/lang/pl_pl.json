@@ -165,5 +165,7 @@
   "screen.ravencoin.atm.history.rent.from": "Czynsz za stoisko",
   "ravencoin.playtime.minutes": "%s min",
   "ravencoin.playtime.hours": "%s h",
-  "ravencoin.playtime.hours_minutes": "%s h %s min"
+  "ravencoin.playtime.hours_minutes": "%s h %s min",
+  "screen.ravencoin.atm.top.place": "%s. %s",
+  "screen.ravencoin.atm.history.line": "%s %s"
 }

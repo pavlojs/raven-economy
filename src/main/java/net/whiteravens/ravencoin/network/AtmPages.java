@@ -133,7 +133,7 @@ public final class AtmPages {
         for (int place = 0; place < accounts.size(); place++) {
             Account account = accounts.get(place);
             boolean you = account.id().equals(player.getUUID());
-            Component name = Component.literal((place + 1) + ". " + account.name());
+            Component name = Component.translatable("screen.ravencoin.atm.top.place", place + 1, account.name());
             rows.add(new AtmListPayload.Row(
                     you ? name.copy().withStyle(ChatFormatting.DARK_AQUA) : name,
                     Component.translatable("screen.ravencoin.shop.coins", Amounts.format(account.balance()))
@@ -164,7 +164,7 @@ public final class AtmPages {
                     ? Component.translatable(line.kind().key())
                     : Component.translatable(line.kind().key() + ".from", line.other());
             rows.add(new AtmListPayload.Row(
-                    Component.empty().append(ago(now - line.when())).append(" ").append(what),
+                    Component.translatable("screen.ravencoin.atm.history.line", ago(now - line.when()), what),
                     Component.translatable(
                                     line.kind().incoming()
                                             ? "screen.ravencoin.atm.history.in"
