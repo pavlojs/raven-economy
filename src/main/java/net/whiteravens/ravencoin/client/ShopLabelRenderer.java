@@ -77,7 +77,10 @@ public class ShopLabelRenderer implements BlockEntityRenderer<ShopBlockEntity> {
         // Without this branch it is drawn as nothing, and a market of empty
         // stalls is indistinguishable from a row of blocks.
         if (shop.toLet()) {
-            this.renderLines(ShopText.stallLabel(shop), pose, buffers);
+            this.renderLines(
+                    ShopText.stallLabel(shop, PluralText.of("screen.ravencoin.shop.rent.period", shop.quotedDays())),
+                    pose,
+                    buffers);
             return;
         }
         if (!shop.configured()) {

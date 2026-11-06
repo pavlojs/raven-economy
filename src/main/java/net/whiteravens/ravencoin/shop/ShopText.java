@@ -70,15 +70,18 @@ public final class ShopText {
      * {@link #label} is written for and used to be drawn as nothing at all — a
      * market of them looked like a row of blank blocks. What a passer-by needs
      * here is the offer, and whether it can be taken today.
+     *
+     * <p>{@code period} is the rent period, worded for the viewer's language by
+     * the client ({@code PluralText}): the server has no ICU to do it with.
      */
-    public static List<Component> stallLabel(ShopBlockEntity shop) {
+    public static List<Component> stallLabel(ShopBlockEntity shop, Component period) {
         List<Component> lines = new ArrayList<>(2);
         lines.add(Component.translatable("screen.ravencoin.shop.rent.offer").withStyle(ChatFormatting.WHITE));
         lines.add(shop.stallReady()
                 ? Component.translatable(
                                 "screen.ravencoin.shop.rent.terms",
                                 Amounts.format(shop.quotedRent()),
-                                period(shop.quotedDays()))
+                                period)
                         .withStyle(ChatFormatting.GOLD)
                 : Component.translatable("screen.ravencoin.shop.rent.not_ready").withStyle(ChatFormatting.RED));
         return lines;
