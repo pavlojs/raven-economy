@@ -158,16 +158,23 @@ is listed, it stays out of the jar, and only the keys it has are checked.
 A new user-facing string goes into the file of every shipped language
 (`en_us.json` and `pl_pl.json`) in the same commit that introduces it.
 
-A text that depends on a number is an ICU plural, because Minecraft's language
-files have no plurals of their own and the forms a number takes differ from
-language to language. `screen.ravencoin.shop.rent.period` is
-`{0, plural, =1 {# day} other {# days}}` in English and
-`{0, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}` in Polish:
-a case for each plural category of the language as CLDR names them, `other`
-always, and `#` for the number. The client words it in the language the player
-has chosen (`PluralText`), with ICU, which Minecraft's client carries.
-`checkTranslations` fails on a translation of such a text that is not a plural
-with an `other` case.
+Minecraft's language files have no plurals of their own, and the forms a number
+takes differ from language to language. So no text puts a number before a word
+that has to agree with it, unless the text is an ICU plural:
+
+- A text the client words can be an ICU plural.
+  `screen.ravencoin.shop.rent.period` is `{0, plural, =1 {# day} other {# days}}`
+  in English and `{0, plural, one {# dzień} few {# dni} many {# dni} other {# dnia}}`
+  in Polish: a case for each plural category of the language as CLDR names them,
+  `other` always, and `#` for the number. The client words it in the language the
+  player has chosen (`PluralText`), with ICU, which Minecraft's client carries
+  and its server does not. `checkTranslations` fails on a translation of such a
+  text that is not a plural with an `other` case.
+- A text the server sends, such as a command's reply or a page of the ATM, is
+  filled in by Minecraft itself, which has no plurals. It names the number after
+  a label (`Reloaded the ladder — ranks: %s`), writes a unit as a symbol
+  (`%s h`), or is worded so that nothing in it changes with the number (Polish
+  `zwrócono %s RC`). A translation of it does the same in its own language.
 
 ## Versions and Minecraft lines
 
