@@ -17,6 +17,8 @@ package net.whiteravens.ravencoin.client;
 
 import com.ibm.icu.text.MessageFormat;
 import com.ibm.icu.util.ULocale;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
@@ -34,6 +36,10 @@ import net.whiteravens.ravencoin.economy.Amounts;
  * with Minecraft's client and not with its server, which is why this lives here.
  */
 public final class PluralText {
+    // Each text parsed once per language: a stall's sign is worded every frame. Only
+    // the render thread asks, so a plain map does.
+    private static final Map<String, MessageFormat> FORMATS = new HashMap<>();
+
     /**
      * {@return the text under {@code key}, worded for {@code count}}
      *
@@ -44,9 +50,14 @@ public final class PluralText {
     public static Component of(String key, int count) {
         String pattern = Language.getInstance().getOrDefault(key);
         String language = Minecraft.getInstance().getLanguageManager().getSelected();
+        String cached = language + '\n' + pattern;
         try {
-            ULocale locale = ULocale.forLanguageTag(language.replace('_', '-'));
-            return Component.literal(new MessageFormat(pattern, locale).format(new Object[] {count}));
+            MessageFormat format = FORMATS.get(cached);
+            if (format == null) {
+                format = new MessageFormat(pattern, ULocale.forLanguageTag(language.replace('_', '-')));
+                FORMATS.put(cached, format);
+            }
+            return Component.literal(format.format(new Object[] {count}));
         } catch (IllegalArgumentException e) {
             return Component.literal(Amounts.format(count));
         }
