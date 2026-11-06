@@ -106,7 +106,7 @@ public final class RankCommands {
         ServerPlayer viewer = context.getSource().getPlayer();
         // "?" rather than a zero when the console asks: nobody has played no time,
         // there is simply no player to measure.
-        String played = viewer == null ? "?" : Playtime.format(Playtime.minutes(viewer));
+        Component played = viewer == null ? Component.literal("?") : Playtime.format(Playtime.minutes(viewer));
         context.getSource().sendSuccess(() -> Component.translatable("commands.ravencoin.rank.list.header"), false);
         for (Rank rank : ranks) {
             boolean owned = viewer != null && RankService.owns(viewer, rank);
@@ -124,7 +124,7 @@ public final class RankCommands {
                                 // priced ones — it has no price worth printing, and
                                 // saying "0 RC" would read as an invitation to buy it.
                                 if (rank.earned()) {
-                                    String at = Playtime.format(rank.playtimeMinutes());
+                                    Component at = Playtime.format(rank.playtimeMinutes());
                                     return needed == null
                                             ? Component.translatable(
                                                     "commands.ravencoin.rank.list.earned", rank.name(), at, played)

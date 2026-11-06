@@ -220,7 +220,7 @@ public final class RankService {
         MinecraftServer server = player.getServer();
         UUID playerId = player.getUUID();
         String playerName = player.getGameProfile().getName();
-        String played = Playtime.format(Playtime.minutes(player));
+        long played = Playtime.minutes(player);
 
         // Not awaited, as in buy() — see the note there.
         CompletableFuture<Void> unused = LuckPermsBridge.grant(playerId, rank.group())
@@ -236,7 +236,7 @@ public final class RankService {
                                 failure);
                         return;
                     }
-                    RavenCoin.LOG.info("{} reached {} after {}", playerName, rank.id(), played);
+                    RavenCoin.LOG.info("{} reached {} after {} min played", playerName, rank.id(), played);
                     server.getPlayerList()
                             .broadcastSystemMessage(
                                     Component.translatable(

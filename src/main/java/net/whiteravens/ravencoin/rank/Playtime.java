@@ -15,6 +15,7 @@
  */
 package net.whiteravens.ravencoin.rank;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 
@@ -44,19 +45,20 @@ public final class Playtime {
     /**
      * {@return a duration a player can read, like {@code 40 h} or {@code 1 h 30 min}}
      *
-     * <p>Built from bare symbols rather than translated words, because {@code h}
-     * and {@code min} are written the same way in both languages this mod ships,
-     * and a duration assembled out of translatable fragments reads badly in at
-     * least one of them. If a language ever arrives where that stops being true,
-     * this is the one place to fix it.
+     * <p>Each of the three shapes is a whole text in the language files rather
+     * than units joined here, so a translation writes the symbols its language
+     * uses, as Russian writes {@code ч} for {@code h}. Symbols rather than words,
+     * because a symbol reads right after any number.
      */
-    public static String format(long minutes) {
+    public static Component format(long minutes) {
         long hours = minutes / MINUTES_PER_HOUR;
         long rest = minutes % MINUTES_PER_HOUR;
         if (hours == 0) {
-            return rest + " min";
+            return Component.translatable("ravencoin.playtime.minutes", rest);
         }
-        return rest == 0 ? hours + " h" : hours + " h " + rest + " min";
+        return rest == 0
+                ? Component.translatable("ravencoin.playtime.hours", hours)
+                : Component.translatable("ravencoin.playtime.hours_minutes", hours, rest);
     }
 
     private Playtime() {}

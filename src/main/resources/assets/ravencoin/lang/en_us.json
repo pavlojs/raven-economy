@@ -162,5 +162,8 @@
   "screen.ravencoin.shop.rent.take": "Rent this stall",
   "screen.ravencoin.shop.rent.taken": "The stall is yours — set out what it sells",
   "screen.ravencoin.atm.history.rent": "Rent",
-  "screen.ravencoin.atm.history.rent.from": "Stall rent"
+  "screen.ravencoin.atm.history.rent.from": "Stall rent",
+  "ravencoin.playtime.minutes": "%s min",
+  "ravencoin.playtime.hours": "%s h",
+  "ravencoin.playtime.hours_minutes": "%s h %s min"
 }
