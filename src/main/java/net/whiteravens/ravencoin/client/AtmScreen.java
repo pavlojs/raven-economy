@@ -298,7 +298,7 @@ public class AtmScreen extends AbstractContainerScreen<AtmMenu> {
 
     private void page(int delta) {
         int limit = Math.max(0, this.rows.size() - STATEMENT_ROWS);
-        this.scroll = Math.clamp(this.scroll + delta * STATEMENT_ROWS, 0, limit);
+        this.scroll = Math.clamp(this.scroll + (long) delta * STATEMENT_ROWS, 0, limit);
     }
 
     private void send(AtmActionPayload.Action action) {
